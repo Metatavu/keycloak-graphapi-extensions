@@ -78,7 +78,7 @@ publishing {
     repositories {
         maven {
             name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/Metatavu/keycloak-graphapi-extension")
+            url = uri("https://maven.pkg.github.com/Metatavu/keycloak-graphapi-extensions")
             credentials {
                 username = System.getenv("USERNAME")
                 password = System.getenv("GITHUB_TOKEN")
