@@ -1,0 +1,5 @@
+kc
+build
+.gradle/
+.idea/
+.env
