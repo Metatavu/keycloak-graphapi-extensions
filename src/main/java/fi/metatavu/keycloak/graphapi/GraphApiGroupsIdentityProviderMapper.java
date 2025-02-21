@@ -104,16 +104,16 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
             .collect(Collectors.toMap(GroupModel::getId, group -> group));
 
         Map<String, GroupModel> managedKeycloakGroups = realmGroups.stream()
-                .map(group -> new AbstractMap.SimpleImmutableEntry<>(getGroupPath(groupTree, group.getId()), group))
-                .filter(entry -> managedKeycloakGroupNames.contains(entry.getKey()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            .map(group -> new AbstractMap.SimpleImmutableEntry<>(getGroupPath(groupTree, group.getId()), group))
+            .filter(entry -> managedKeycloakGroupNames.contains(entry.getKey()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         ArrayList<GroupModel> leaveUserGroups = new ArrayList<>(user.getGroupsStream()
+            .filter(group -> managedKeycloakGroupNames.contains(group.getName()))
             .toList());
 
         List<String> previousGroupNames = leaveUserGroups.stream()
             .map(GroupModel::getName)
-            .filter(managedKeycloakGroupNames::contains)
             .toList();
 
         ArrayList<GroupModel> joinUserGroups = new ArrayList<>();
@@ -131,28 +131,28 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
                 String keycloakGroup = groupMappings.get(azureGroupName);
 
                 if (previousGroupNames.contains(keycloakGroup)) {
-                    logger.debug("Removing user from leave group " + keycloakGroup);
+                    logger.info("Removing user from leave group " + keycloakGroup);
                     leaveUserGroups.removeIf(group -> group.getName().equals(keycloakGroup));
                 } else {
                     if (managedKeycloakGroups.containsKey(keycloakGroup)) {
-                        logger.debug("Adding user to join group " + keycloakGroup);
+                        logger.info("Adding user to join group " + keycloakGroup);
                         joinUserGroups.add(managedKeycloakGroups.get(keycloakGroup));
                     } else {
                         logger.warn("Could not find managed Keycloak group " + keycloakGroup);
                     }
                 }
             } else {
-                logger.debug("Skipping non-managed Azure group " + azureGroupName);
+                logger.info("Skipping non-managed Azure group " + azureGroupName);
             }
         }
 
         for (GroupModel group : joinUserGroups) {
-            logger.debug("Joining user to group " + group.getName());
+            logger.info("Joining user to group " + group.getName());
             user.joinGroup(group);
         }
 
         for (GroupModel group : leaveUserGroups) {
-            logger.debug("Leaving user from group " + group.getName());
+            logger.info("Leaving user from group " + group.getName());
             user.leaveGroup(group);
         }
     }
