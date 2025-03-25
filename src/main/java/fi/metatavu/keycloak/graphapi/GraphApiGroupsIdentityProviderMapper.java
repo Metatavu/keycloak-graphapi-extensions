@@ -81,20 +81,6 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
     }
 
     /**
-     * Returns true if group name matches managed Keycloak group names / paths
-     *
-     * @param groupName group name
-     * @param managedKeycloakGroupNames group names / paths
-     */
-    private boolean isGroupNameMatch(String groupName, List<String> managedKeycloakGroupNames) {
-        return managedKeycloakGroupNames.stream().anyMatch(name -> {
-            String[] parts = name.split("/");
-            String lastPart = parts[parts.length - 1];
-            return lastPart.equals(groupName) || name.equals(groupName);
-        });
-    }
-
-    /**
      * Updates user manager attributes
      *
      * @param user user model
@@ -123,7 +109,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         ArrayList<GroupModel> leaveUserGroups = new ArrayList<>(user.getGroupsStream()
-            .filter(group -> isGroupNameMatch(group.getName(), managedKeycloakGroupNames))
+            .filter(group -> managedKeycloakGroupNames.contains(getGroupPath(groupTree, group.getId())))
             .toList());
 
         List<String> previousGroupNames = leaveUserGroups.stream()
