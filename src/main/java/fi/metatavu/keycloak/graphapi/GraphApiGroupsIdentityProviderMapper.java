@@ -109,7 +109,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         ArrayList<GroupModel> leaveUserGroups = new ArrayList<>(user.getGroupsStream()
-            .filter(group -> managedKeycloakGroupNames.contains(group.getName()))
+            .filter(group -> managedKeycloakGroupNames.contains(getGroupPath(groupTree, group.getId())))
             .toList());
 
         List<String> previousGroupNames = leaveUserGroups.stream()
