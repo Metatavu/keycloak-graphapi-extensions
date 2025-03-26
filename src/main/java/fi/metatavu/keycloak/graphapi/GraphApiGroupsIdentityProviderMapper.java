@@ -113,7 +113,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
             .toList());
 
         List<String> previousGroupNames = leaveUserGroups.stream()
-            .map(GroupModel::getName)
+            .map(group -> getGroupPath(groupTree, group.getId()))
             .toList();
 
         ArrayList<GroupModel> joinUserGroups = new ArrayList<>();
@@ -132,7 +132,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
 
                 if (previousGroupNames.contains(keycloakGroup)) {
                     logger.info("Removing user from leave group " + keycloakGroup);
-                    leaveUserGroups.removeIf(group -> group.getName().equals(keycloakGroup));
+                    leaveUserGroups.removeIf(group -> getGroupPath(groupTree, group.getId()).equals(keycloakGroup));
                 } else {
                     if (managedKeycloakGroups.containsKey(keycloakGroup)) {
                         logger.info("Adding user to join group " + keycloakGroup);
