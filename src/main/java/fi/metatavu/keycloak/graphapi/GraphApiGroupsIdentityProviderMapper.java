@@ -72,12 +72,12 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
 
     @Override
     public void importNewUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
-        updateGroups(realm, user, mapperModel, context);
+        updateGroups(session, realm, user, mapperModel, context);
     }
 
     @Override
     public void updateBrokeredUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
-        updateGroups(realm, user, mapperModel, context);
+        updateGroups(session, realm, user, mapperModel, context);
     }
 
     /**
@@ -86,7 +86,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
      * @param user user model
      * @param context brokered identity context
      */
-    private void updateGroups(RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
+    private void updateGroups(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
         AccessTokenResponse brokerToken = getBrokerToken(context);
         if (brokerToken == null) {
             logger.warn("Could not retrieve broker token from context, skipping group GraphAPI group mapping");
@@ -148,11 +148,19 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
 
         for (GroupModel group : joinUserGroups) {
             logger.info("Joining user to group " + group.getName());
+
+            String groupId = group.getId();
+            String authNoteId = "USER_JOINING_GROUP_" + groupId;
+            session.getContext().getAuthenticationSession().setAuthNote(authNoteId, user.getId());
             user.joinGroup(group);
         }
 
         for (GroupModel group : leaveUserGroups) {
             logger.info("Leaving user from group " + group.getName());
+
+            String groupId = group.getId();
+            String authNoteId = "USER_LEAVING_GROUP_" + groupId;
+            session.getContext().getAuthenticationSession().setAuthNote(authNoteId, user.getId());
             user.leaveGroup(group);
         }
     }
