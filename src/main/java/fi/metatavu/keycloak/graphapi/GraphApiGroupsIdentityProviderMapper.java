@@ -93,9 +93,11 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
             return;
         }
 
-        Map<String, String> groupMappings = getGroupMappings(mapperModel);
+        Map<String, List<String>> groupMappings = getGroupMappings(mapperModel);
         List<String> managedAzureGroupNames = groupMappings.keySet().stream().toList();
-        List<String> managedKeycloakGroupNames = groupMappings.values().stream().toList();
+        List<String> managedKeycloakGroupNames = groupMappings.values().stream()
+            .flatMap(List::stream)
+            .toList();
 
         List<GroupModel> realmGroups = realm.getGroupsStream()
             .toList();
@@ -128,17 +130,18 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
             String azureGroupName = azureGroup.getDisplayName().trim();
 
             if (managedAzureGroupNames.contains(azureGroupName)) {
-                String keycloakGroup = groupMappings.get(azureGroupName);
-
-                if (previousGroupNames.contains(keycloakGroup)) {
-                    logger.info("Removing user from leave group " + keycloakGroup);
-                    leaveUserGroups.removeIf(group -> getGroupPath(groupTree, group.getId()).equals(keycloakGroup));
-                } else {
-                    if (managedKeycloakGroups.containsKey(keycloakGroup)) {
-                        logger.info("Adding user to join group " + keycloakGroup);
-                        joinUserGroups.add(managedKeycloakGroups.get(keycloakGroup));
+                List<String> keycloakGroups = groupMappings.get(azureGroupName);
+                for (String keycloakGroup : keycloakGroups) {
+                    if (previousGroupNames.contains(keycloakGroup)) {
+                        logger.info("Removing user from leave group " + keycloakGroup);
+                        leaveUserGroups.removeIf(group -> getGroupPath(groupTree, group.getId()).equals(keycloakGroup));
                     } else {
-                        logger.warn("Could not find managed Keycloak group " + keycloakGroup);
+                        if (managedKeycloakGroups.containsKey(keycloakGroup)) {
+                            logger.info("Adding user to join group " + keycloakGroup);
+                            joinUserGroups.add(managedKeycloakGroups.get(keycloakGroup));
+                        } else {
+                            logger.warn("Could not find managed Keycloak group " + keycloakGroup);
+                        }
                     }
                 }
             } else {
@@ -211,11 +214,12 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
      * @param mapperModel mapper model configuration
      * @return group mappings
      */
-    private Map<String, String> getGroupMappings(IdentityProviderMapperModel mapperModel) {
-        Map<String, String> result = new HashMap<>();
+    private Map<String, List<String>> getGroupMappings(IdentityProviderMapperModel mapperModel) {
+        Map<String, List<String>> result = new HashMap<>();
         for (Map.Entry<String, List<String>> entry : mapperModel.getConfigMap(CONFIG_GRAPH_API_GROUP_MAPPING).entrySet()) {
             for (String value : entry.getValue()) {
-                result.put(entry.getKey(), value);
+                result.computeIfAbsent(entry.getKey(), k -> new ArrayList<>());
+                result.get(entry.getKey()).add(value);
             }
         }
 
