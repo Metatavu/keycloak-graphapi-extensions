@@ -126,14 +126,22 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
             return;
         }
 
-        for (TransitiveMemberOfGroup azureGroup : azureGroups) {
-            String azureGroupName = azureGroup.getDisplayName().trim();
+        List<String> azureGroupNames = azureGroups.stream()
+            .map(TransitiveMemberOfGroup::getDisplayName)
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .toList();
+
+        logger.info("User's Azure groups: " + String.join(", ", azureGroupNames));
+
+        for (String azureGroupName : azureGroupNames) {
+            logger.info("Processing Azure group: " + azureGroupName);
 
             if (managedAzureGroupNames.contains(azureGroupName)) {
                 List<String> keycloakGroups = groupMappings.get(azureGroupName);
                 for (String keycloakGroup : keycloakGroups) {
                     if (previousGroupNames.contains(keycloakGroup)) {
-                        logger.info("Removing user from leave group " + keycloakGroup);
+                        logger.info("Not removing user from group " + keycloakGroup);
                         leaveUserGroups.removeIf(group -> getGroupPath(groupTree, group.getId()).equals(keycloakGroup));
                     } else {
                         if (managedKeycloakGroups.containsKey(keycloakGroup)) {
