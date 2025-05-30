@@ -1,0 +1,16 @@
+services:
+  keycloak:
+    hostname: keycloak
+    image: quay.io/keycloak/keycloak:26.1.2
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=test
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=test
+      - KEYCLOAK_IMPORT=/opt/docker/kc.json
+    ports:
+      - "8080:8080"
+    volumes:
+      - "./build/libs/:/opt/keycloak/providers/"
+      - "./src/test/resources/kc.json:/opt/keycloak/data/import/kc.json"
+    command:
+      - start-dev
+      - --import-realm
