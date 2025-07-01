@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.graphapi.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsResponse;
+import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.keycloak.representations.AccessTokenResponse;
 
 import java.io.IOException;
@@ -44,6 +45,37 @@ public class GraphApiClient {
             } catch (InterruptedException e) {
                 throw new IOException(e);
             }
+        }
+    }
+
+    /**
+     * Returns logged user's manager
+     *
+     * @param accessToken access token
+     * @return logged user's manager
+     * @throws IOException thrown when request fails
+     */
+    public GraphUser getManager(AccessTokenResponse accessToken) throws IOException {
+        HttpClient client = HttpClient.newHttpClient();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(String.format("%s/me/manager", getGraphApiUrl())))
+                .header("Authorization", "Bearer " + accessToken.getToken())
+                .build();
+
+        try {
+            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            int statusCode = response.statusCode();
+
+            if (statusCode == 200) {
+                return deserialize(response.body(), GraphUser.class);
+            } else if (statusCode == 404) {
+                return null;
+            } else {
+                throw new IOException(String.format("Failed to execute: %s", statusCode));
+            }
+        } catch (InterruptedException e) {
+            throw new IOException(e);
         }
     }
 

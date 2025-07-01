@@ -1134,15 +1134,129 @@
       "passMaxAge" : "false"
     }
   } ],
-  "identityProviderMappers" : [ {
-    "id" : "94a320ca-c4ec-4c7d-87fe-e8d09ce04084",
-    "name" : "Azure Ad Manager Mapper",
-    "identityProviderAlias" : "oidc",
-    "identityProviderMapper" : "azure-ad-manager-identity-provider-mapper",
-    "config" : {
-      "syncMode" : "INHERIT"
+  "identityProviderMappers" : [
+    {
+      "id": "514457e7-fdd4-4311-a3a4-f95cd8f30a3b",
+      "name": "manager mail",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Mail",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-mail"
+      }
+    },
+    {
+      "id": "93dc9625-63e3-4dd1-9924-5fee19b70551",
+      "name": "manager location",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Office Location",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-office-location"
+      }
+    },
+    {
+      "id": "bf327ffa-8ff7-4ab6-8031-3a046ca2e20f",
+      "name": "Manager id",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager ID",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-id"
+      }
+    },
+    {
+      "id": "5f7419e0-b335-48dd-a59a-6c75dd1ba76d",
+      "name": "Manager given name",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Given Name",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-given-name"
+      }
+    },
+    {
+      "id": "7a196e0d-fbdf-4cbd-91f4-c1a4e207d818",
+      "name": "Manager business phones",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Business Phones",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-business-phones"
+      }
+    },
+    {
+      "id": "075ce1b8-522e-4a8b-8c35-1445517b6eba",
+      "name": "Manager display name",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Display Name",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-display-name"
+      }
+    },
+    {
+      "id": "d46042ab-21b6-4fb9-8cd0-ad178cad0b9c",
+      "name": "Manager job title",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Job Title",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-job-title"
+      }
+    },
+    {
+      "id": "b2f1cb30-1034-4f96-be70-b6815c480285",
+      "name": "Manager mobile phone",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Mobile Phone",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-mobile-phone"
+      }
+    },
+    {
+      "id": "0398464b-2c6a-4485-ac10-b04a9c7a2e80",
+      "name": "Manager preferred language",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Preferred Language",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-preferred-language"
+      }
+    },
+    {
+      "id": "0855259a-e5a6-4043-9f46-cb9f92026f62",
+      "name": "Manager surname",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager Surname",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-surname"
+      }
+    },
+    {
+      "id": "39313bdc-1cfe-4c60-9fdb-78104d61f825",
+      "name": "Manager principal name",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-manager-attribute-name": "Manager ID",
+        "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-user-principal-name"
+      }
     }
-  } ],
+  ],
   "components" : {
     "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy" : [ {
       "id" : "49ceb111-bcf3-4b78-9a4f-82ad5f46f45a",

@@ -3,6 +3,7 @@ import java.util.*
 plugins {
     `java-library`
     `maven-publish`
+    kotlin("jvm") version "2.1.10"
 }
 
 repositories {
@@ -11,10 +12,25 @@ repositories {
 }
 
 val keycloakVersion: String by project
+val testContainersVersion: String by project
+val restAssuredVersion: String by project
+val junitVersion: String by project
+
+
 
 dependencies {
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
+    implementation(kotlin("stdlib-jdk8"))
+
+    testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+    testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
+    testImplementation("io.rest-assured:rest-assured:$restAssuredVersion")
+}
+
+tasks.named<Test>("test") {
+    environment("BUILD_DIR", getLayout().buildDirectory.asFile.get().absolutePath)
+    useJUnitPlatform()
 }
 
 group = "fi.metatavu.keycloak.graphapi"
@@ -72,6 +88,10 @@ tasks.register("nextSnapshotVersion") {
             println("Invalid version format")
         }
     }
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
 
 publishing {
