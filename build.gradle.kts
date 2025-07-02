@@ -3,7 +3,6 @@ import java.util.*
 plugins {
     `java-library`
     `maven-publish`
-    kotlin("jvm") version "2.1.10"
 }
 
 repositories {
@@ -21,7 +20,6 @@ val seleniumVersion: String by project
 dependencies {
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
-    implementation(kotlin("stdlib-jdk8"))
 
     testImplementation("org.seleniumhq.selenium:selenium-remote-driver:$seleniumRemoteDriverVersion")
     testImplementation("org.seleniumhq.selenium:selenium-java:$seleniumVersion")
