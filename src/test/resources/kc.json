@@ -1252,7 +1252,7 @@
       "identityProviderMapper": "graph-api-user-manager-identity-provider-mapper",
       "config": {
         "syncMode": "INHERIT",
-        "graph-api-user-manager-attribute-name": "Manager ID",
+        "graph-api-user-manager-attribute-name": "Manager User Principal Name",
         "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-user-principal-name"
       }
     }
