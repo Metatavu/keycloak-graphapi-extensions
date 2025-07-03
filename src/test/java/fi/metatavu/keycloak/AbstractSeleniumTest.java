@@ -24,7 +24,7 @@ public class AbstractSeleniumTest {
      * @param by element locator
      */
     protected void waitButtonAndClick(WebDriver driver, By by) {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60)); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
         WebElement element = wait.until(ExpectedConditions.elementToBeClickable(by));
         element.click();
     }
