@@ -11,10 +11,27 @@ repositories {
 }
 
 val keycloakVersion: String by project
+val testContainersVersion: String by project
+val restAssuredVersion: String by project
+val junitVersion: String by project
+val seleniumRemoteDriverVersion: String by project
+val seleniumVersion: String by project
 
 dependencies {
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
+
+    testImplementation("org.seleniumhq.selenium:selenium-remote-driver:$seleniumRemoteDriverVersion")
+    testImplementation("org.seleniumhq.selenium:selenium-java:$seleniumVersion")
+    testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+    testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
+    testImplementation("io.rest-assured:rest-assured:$restAssuredVersion")
+    testImplementation("org.testcontainers:selenium:$testContainersVersion")
+}
+
+tasks.named<Test>("test") {
+    environment("BUILD_DIR", getLayout().buildDirectory.asFile.get().absolutePath)
+    useJUnitPlatform()
 }
 
 group = "fi.metatavu.keycloak.graphapi"

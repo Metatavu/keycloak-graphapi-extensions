@@ -1,0 +1,26 @@
+services:
+  wiremock:
+    image: wiremock/wiremock:3.3.1
+    ports:
+       - "8081:8080"
+    volumes:
+      - "./src/test/resources/mappings:/home/wiremock/mappings"
+    command: --verbose --global-response-templating
+  keycloak:
+    hostname: keycloak
+    image: quay.io/keycloak/keycloak:26.1.2
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=test
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=test
+      - KEYCLOAK_IMPORT=/opt/docker/kc.json
+      - GRAPH_API_URL=http://wiremock:8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - "./build/libs/:/opt/keycloak/providers/"
+      - "./src/test/resources/kc.json:/opt/keycloak/data/import/kc.json"
+    command:
+      - start-dev
+      - --import-realm
+    depends_on:
+      - wiremock

@@ -1,1 +1,2 @@
 fi.metatavu.keycloak.graphapi.GraphApiGroupsIdentityProviderMapper
+fi.metatavu.keycloak.graphapi.GraphApiUserManagerIdentityProviderMapper
