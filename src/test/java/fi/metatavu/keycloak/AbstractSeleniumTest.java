@@ -38,7 +38,7 @@ public class AbstractSeleniumTest {
      * @param by element locator
      */
     protected void waitText(WebDriver driver, By by, String text) {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60)); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
         wait.until(ExpectedConditions.textToBe(by, text));
     }
 
@@ -52,7 +52,7 @@ public class AbstractSeleniumTest {
      * @param text text to type
      */
     protected void waitInputAndType(WebDriver driver, By by, String text) {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60)); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
         WebElement element = wait.until(ExpectedConditions.elementToBeClickable(by));
         element.sendKeys(text);
     }
@@ -67,7 +67,7 @@ public class AbstractSeleniumTest {
      * @param text text to type
      */
     protected void waitAndAssertInputValue(WebDriver driver, By by, String text) {
-        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60)); // wait for a maximum of 60 seconds
+        WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
         WebElement element = wait.until(ExpectedConditions.elementToBeClickable(by));
         assertEquals(text, element.getAttribute("value"));
     }

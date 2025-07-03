@@ -26,7 +26,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
     testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
     testImplementation("io.rest-assured:rest-assured:$restAssuredVersion")
-    testImplementation("org.testcontainers:selenium:1.21.3")
+    testImplementation("org.testcontainers:selenium:$testContainersVersion")
 }
 
 tasks.named<Test>("test") {
@@ -89,10 +89,6 @@ tasks.register("nextSnapshotVersion") {
             println("Invalid version format")
         }
     }
-}
-
-tasks.withType<Test> {
-    useJUnitPlatform()
 }
 
 publishing {
