@@ -19,6 +19,8 @@ val junitVersion: String by project
 val seleniumRemoteDriverVersion: String by project
 val seleniumVersion: String by project
 val jacocoVersion: String by project
+val wiremockTestContainerVersion: String by project
+val wiremockVersion: String by project
 
 val jacocoRuntime: Configuration by configurations.creating
 
@@ -34,6 +36,8 @@ dependencies {
     testImplementation("io.rest-assured:rest-assured:$restAssuredVersion")
     testImplementation("org.testcontainers:selenium:$testContainersVersion")
     testImplementation("com.github.dasniko:testcontainers-keycloak:$testContainersKeycloakVersion")
+    testImplementation("org.wiremock.integrations.testcontainers:wiremock-testcontainers-module:$wiremockTestContainerVersion")
+    testImplementation("org.wiremock:wiremock:$wiremockVersion")
 
     jacocoRuntime("org.jacoco:org.jacoco.agent:$jacocoVersion:runtime")
 }
