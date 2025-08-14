@@ -22,7 +22,6 @@ import java.util.Map;
 public class GraphApiUserManagerIdentityProviderMapper extends AbstractIdentityProviderMapper {
     private static final Logger logger = Logger.getLogger(GraphApiUserManagerIdentityProviderMapper.class);
 
-
     private static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final String PROVIDER_ID = "graph-api-user-manager-identity-provider-mapper";
@@ -40,6 +39,8 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractIdentityP
     private static final String MANAGER_PREFERRED_LANGUAGE = "Manager Preferred Language";
     private static final String MANAGER_SURNAME = "Manager Surname";
     private static final String MANAGER_USER_PRINCIPAL_NAME = "Manager User Principal Name";
+
+    private static final String MANAGER_AUTH_NOTE = "graph-api-user-manager";
 
     static {
         ProviderConfigProperty graphApiProperty = new ProviderConfigProperty();
@@ -118,9 +119,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractIdentityP
         String graphApiAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_MANAGER_ATTRIBUTE);
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_MANAGER_ATTRIBUTE_KEYCLOAK_NAME);
 
-        AccessTokenResponse brokerToken = getBrokerToken(context);
-
-        GraphUser manager = getManager(brokerToken);
+        GraphUser manager = getManager(context);
         if (manager == null) {
             logger.warn("Could not retrieve manager from Graph API, skipping manager update");
             return;
@@ -174,13 +173,33 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractIdentityP
     /**
      * Returns manager of the user
      *
-     * @param accessToken access token
+     * @param context brokered identity context
      * @return manager of the user
      */
-    private GraphUser getManager(AccessTokenResponse accessToken) {
+    private GraphUser getManager(BrokeredIdentityContext context) {
+        String cachedManager = context.getAuthenticationSession().getAuthNote(MANAGER_AUTH_NOTE);
+        if (cachedManager != null) {
+            try {
+                return new ObjectMapper().readValue(cachedManager, GraphUser.class);
+            } catch (JsonProcessingException e) {
+                logger.error("Failed to parse cached manager", e);
+            }
+        }
+
+        AccessTokenResponse brokerToken = getBrokerToken(context);
+        if (brokerToken == null) {
+            logger.warn("Broker token is null, cannot retrieve manager");
+            return null;
+        }
+
         GraphApiClient graphApiClient = new GraphApiClient();
         try {
-            return graphApiClient.getManager(accessToken);
+            GraphUser manager = graphApiClient.getManager(brokerToken);
+            if (manager != null) {
+                context.getAuthenticationSession().setAuthNote(MANAGER_AUTH_NOTE, new ObjectMapper().writeValueAsString(manager));
+            }
+
+            return manager;
         } catch (Exception e) {
             logger.error("Failed to get manager", e);
             return null;
