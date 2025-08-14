@@ -3,6 +3,7 @@ package fi.metatavu.keycloak;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
@@ -80,6 +81,27 @@ public class AbstractSeleniumTest {
      */
     protected By byDataTestId(String dataTestId) {
         return By.cssSelector("[data-testid='" + dataTestId + "']");
+    }
+
+    /**
+     * Logs user out
+     *
+     * @param driver web driver
+     */
+    protected void logout(RemoteWebDriver driver) {
+        driver.get(getAccountUrl());
+        waitButtonAndClick(driver, By.cssSelector("button.pf-v5-c-menu-toggle"));
+        waitButtonAndClick(driver, By.cssSelector("button.pf-v5-c-menu__item"));
+        waitButtonAndClick(driver, By.id("social-oidc"));
+    }
+
+    /**
+     * Returns the account URL for the Keycloak instance
+     *
+     * @return account URL
+     */
+    protected String getAccountUrl() {
+        return "http://keycloak:8080/realms/test/account";
     }
 
 }
