@@ -1,7 +1,8 @@
 package fi.metatavu.keycloak;
 
+import dasniko.testcontainers.keycloak.KeycloakContainer;
+
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.By;
 import org.openqa.selenium.chrome.ChromeOptions;
@@ -10,46 +11,36 @@ import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.BrowserWebDriverContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.IOException;
-
+@Testcontainers
 public class GraphApiTests extends AbstractSeleniumTest {
 
     private static final Network network = Network.newNetwork();
 
-    static GenericContainer keycloakContainer;
+    @Container
+    private static final KeycloakContainer keycloakContainer = KeycloakTestUtils.createKeycloakContainer(network);
 
-    static GenericContainer wiremockContainer;
+    @Container
+    @SuppressWarnings({"resource", "unused"})
+    private static final GenericContainer<?> wiremockContainer = new GenericContainer<>(DockerImageName.parse("wiremock/wiremock:3.3.1"))
+            .withNetworkAliases("wiremock")
+            .withNetwork(network)
+            .withFileSystemBind("./src/test/resources/mappings", "/home/wiremock/mappings", BindMode.READ_ONLY);
 
-    static BrowserWebDriverContainer webDriverContainer;
+    @Container
+    @SuppressWarnings("resource")
+    private static final BrowserWebDriverContainer<?> webDriverContainer = new BrowserWebDriverContainer<>()
+            .withNetwork(network)
+            .withNetworkAliases("chrome")
+            .withCapabilities(new ChromeOptions())
+            .withRecordingMode(BrowserWebDriverContainer.VncRecordingMode.SKIP, null);
 
-    @BeforeAll
-    public static void setup() throws IOException, InterruptedException {
-        keycloakContainer = new GenericContainer(DockerImageName.parse("quay.io/keycloak/keycloak:26.1.2"));
-        keycloakContainer.withNetwork(network);
-        keycloakContainer.addFileSystemBind("./build/libs/", "/opt/keycloak/providers", BindMode.READ_ONLY);
-        keycloakContainer.addFileSystemBind("./src/test/resources/kc.json", "/opt/keycloak/data/import/kc.json", BindMode.READ_ONLY);
-        keycloakContainer.withNetworkAliases("keycloak");
-
-        keycloakContainer.withExposedPorts(8080);
-        keycloakContainer.withEnv("GRAPH_API_URL", "http://wiremock:8080");
-        keycloakContainer.withCommand("start-dev", "--import-realm");
-        keycloakContainer.start();
-
-        wiremockContainer = new GenericContainer(DockerImageName.parse("wiremock/wiremock:3.3.1"));
-        wiremockContainer.withNetworkAliases("wiremock");
-        wiremockContainer.withNetwork(network);
-        wiremockContainer.withFileSystemBind("./src/test/resources/mappings", "/home/wiremock/mappings", BindMode.READ_ONLY);
-        wiremockContainer.start();
-
-        webDriverContainer = new BrowserWebDriverContainer();
-        webDriverContainer.withNetwork(network);
-        webDriverContainer.withNetworkAliases("chrome");
-        webDriverContainer.withCapabilities(new ChromeOptions());
-        webDriverContainer.withRecordingMode(BrowserWebDriverContainer.VncRecordingMode.SKIP, null);
-        webDriverContainer.withExposedPorts(4444);
-        webDriverContainer.start();
+    @AfterAll
+    static void tearDown() {
+        KeycloakTestUtils.stopKeycloakContainer(keycloakContainer);
     }
 
     @Test
@@ -74,20 +65,5 @@ public class GraphApiTests extends AbstractSeleniumTest {
         waitAndAssertInputValue(driver, By.id("azure-ad-manager-preferred-language"), "en-US");
         waitAndAssertInputValue(driver, By.id("azure-ad-manager-surname"), "Siciliani");
         waitAndAssertInputValue(driver, By.id("azure-ad-manager-user-principal-name"), "DiegoS@M365x214355.onmicrosoft.com");
-    }
-
-    @AfterAll
-    public static void tearDown() {
-        if (keycloakContainer != null) {
-            keycloakContainer.stop();
-        }
-
-        if (wiremockContainer != null) {
-            wiremockContainer.stop();
-        }
-
-        if (webDriverContainer != null) {
-            webDriverContainer.stop();
-        }
     }
 }
