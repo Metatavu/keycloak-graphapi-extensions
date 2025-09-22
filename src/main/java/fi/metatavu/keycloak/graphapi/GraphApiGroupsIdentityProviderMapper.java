@@ -182,7 +182,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
      * @param context brokered identity context
      * @return parsed broker token or null if token is not present
      */
-    private AccessTokenResponse getBrokerToken(BrokeredIdentityContext context) {
+    AccessTokenResponse getBrokerToken(BrokeredIdentityContext context) {
         String token = context.getToken();
         if (token == null) {
             return null;
@@ -196,14 +196,18 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
         }
     }
 
+    protected GraphApiClient createGraphApiClient() {
+        return new GraphApiClient();
+    }
+
     /**
      * Returns user groups from GraphAPI
      *
      * @param accessToken access token
      * @return user groups
      */
-    private List<TransitiveMemberOfGroup> getAzureGroups(AccessTokenResponse accessToken) {
-        GraphApiClient graphApiClient = new GraphApiClient();
+    List<TransitiveMemberOfGroup> getAzureGroups(AccessTokenResponse accessToken) {
+        GraphApiClient graphApiClient = createGraphApiClient();
         try {
             return graphApiClient.getTransitiveMemberOfGroups(accessToken)
                 .getValue()
@@ -222,7 +226,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
      * @param mapperModel mapper model configuration
      * @return group mappings
      */
-    private Map<String, List<String>> getGroupMappings(IdentityProviderMapperModel mapperModel) {
+    Map<String, List<String>> getGroupMappings(IdentityProviderMapperModel mapperModel) {
         Map<String, List<String>> result = new HashMap<>();
         for (Map.Entry<String, List<String>> entry : mapperModel.getConfigMap(CONFIG_GRAPH_API_GROUP_MAPPING).entrySet()) {
             for (String value : entry.getValue()) {
@@ -241,7 +245,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
      * @param id group id
      * @return group path
      */
-    private String getGroupPath(Map<String, GroupModel> groupTree, String id) {
+    String getGroupPath(Map<String, GroupModel> groupTree, String id) {
         GroupModel group = groupTree.get(id);
         if (group.getParentId() != null) {
             return getGroupPath(groupTree, group.getParentId()) + "/" + group.getName();

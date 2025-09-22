@@ -38,6 +38,9 @@ dependencies {
     testImplementation("com.github.dasniko:testcontainers-keycloak:$testContainersKeycloakVersion")
     testImplementation("org.wiremock.integrations.testcontainers:wiremock-testcontainers-module:$wiremockTestContainerVersion")
     testImplementation("org.wiremock:wiremock:$wiremockVersion")
+    testImplementation("org.mockito:mockito-core:5.2.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.2.0")
+    testImplementation("org.keycloak:keycloak-services:$keycloakVersion")
 
     jacocoRuntime("org.jacoco:org.jacoco.agent:$jacocoVersion:runtime")
 }
