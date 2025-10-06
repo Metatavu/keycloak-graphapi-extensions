@@ -197,22 +197,22 @@ public class GraphApiIntegrationTests {
                 .withHeader("Content-Type", "application/json")
                 .withBody(azureResponse)));
 
-        GraphApiGroupsIdentityProviderMapper mapper = new GraphApiGroupsIdentityProviderMapper();
-        IdentityProviderMapperModel mapperModel = new IdentityProviderMapperModel();
-
-        ObjectMapper objectMapper = new ObjectMapper();
-        String mappingJson = objectMapper.writeValueAsString(
-            Map.of(azureGroupName, List.of(keycloakGroupPath))
-        );
-        mapperModel.setConfig(Map.of("graph-api-group-mapping", mappingJson));
+        String wiremockUrl = String.format("http://localhost:%d", wiremockContainer.getMappedPort(8080));
+        GraphApiClient client = new GraphApiClient(wiremockUrl);
+        GraphApiGroupsIdentityProviderMapper mapper = new TestGraphApiGroupsIdentityProviderMapper(client);
 
         var accessToken = new AccessTokenResponse();
         accessToken.setToken("dummy-token");
 
-        BrokeredIdentityContext context = mock(BrokeredIdentityContext.class);
-        when(context.getToken()).thenReturn(objectMapper.writeValueAsString(accessToken));
+        var groups = mapper.getAzureGroups(accessToken);
+        assertNotNull(groups);
+        assertEquals(1, groups.size());
+        assertEquals(azureGroupName, groups.get(0).getDisplayName());
 
-        assertDoesNotThrow(() -> mapper.getAzureGroups(accessToken));
+        WireMock.verify(1, WireMock.getRequestedFor(
+            WireMock.urlPathEqualTo("/me/transitiveMemberOf/microsoft.graph.group"))
+            .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail"))
+        );
     }
 
     @Test
@@ -239,9 +239,12 @@ public class GraphApiIntegrationTests {
         GraphApiClient client = new GraphApiClient(wiremockUrl);
         GraphApiGroupsIdentityProviderMapper mapper = new TestGraphApiGroupsIdentityProviderMapper(client);
 
-        IdentityProviderMapperModel mapperModel = mock(IdentityProviderMapperModel.class);
-        when(mapperModel.getConfigMap("graph-api-group-mapping"))
-            .thenReturn(Map.of(azureGroupName, List.of(keycloakGroupPath)));
+        ObjectMapper objectMapper = new ObjectMapper();
+        String mappingJson = """
+            [{"key":"%s","value":"%s"}]
+        """.formatted(azureGroupName, keycloakGroupPath);
+        IdentityProviderMapperModel mapperModel = new StubIdentityProviderMapperModel();
+        mapperModel.setConfig(Map.of("graph-api-group-mapping", mappingJson));
 
         KeycloakSession session = mock(KeycloakSession.class);
         KeycloakContext keycloakContext = mock(KeycloakContext.class);
@@ -257,7 +260,6 @@ public class GraphApiIntegrationTests {
         UserModel user = mock(UserModel.class);
         when(user.getGroupsStream()).thenReturn(Stream.empty());
 
-        ObjectMapper objectMapper = new ObjectMapper();
         AccessTokenResponse accessToken = new AccessTokenResponse();
         accessToken.setToken("dummy-token");
         BrokeredIdentityContext context = mock(BrokeredIdentityContext.class);
@@ -267,6 +269,11 @@ public class GraphApiIntegrationTests {
 
         verify(user, times(1)).joinGroup(groupModel);
         verify(user, never()).leaveGroup(any(GroupModel.class));
+
+        WireMock.verify(1, WireMock.getRequestedFor(
+            WireMock.urlPathEqualTo("/me/transitiveMemberOf/microsoft.graph.group"))
+            .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail"))
+        );
     }
 
     @Test
@@ -291,9 +298,12 @@ public class GraphApiIntegrationTests {
         GraphApiClient client = new GraphApiClient(wiremockUrl);
         GraphApiGroupsIdentityProviderMapper mapper = new TestGraphApiGroupsIdentityProviderMapper(client);
 
-        IdentityProviderMapperModel mapperModel = mock(IdentityProviderMapperModel.class);
-        when(mapperModel.getConfigMap("graph-api-group-mapping"))
-            .thenReturn(Map.of(azureGroupName, List.of(keycloakGroupPath)));
+        ObjectMapper objectMapper = new ObjectMapper();
+        String mappingJson = """
+            [{"key":"%s","value":"%s"}]
+        """.formatted(azureGroupName, keycloakGroupPath);
+        IdentityProviderMapperModel mapperModel = new StubIdentityProviderMapperModel();
+        mapperModel.setConfig(Map.of("graph-api-group-mapping", mappingJson));
 
         KeycloakSession session = mock(KeycloakSession.class);
         KeycloakContext keycloakContext = mock(KeycloakContext.class);
@@ -309,7 +319,6 @@ public class GraphApiIntegrationTests {
         UserModel user = mock(UserModel.class);
         when(user.getGroupsStream()).thenReturn(Stream.of(groupModel));
 
-        ObjectMapper objectMapper = new ObjectMapper();
         AccessTokenResponse accessToken = new AccessTokenResponse();
         accessToken.setToken("dummy-token");
         BrokeredIdentityContext context = mock(BrokeredIdentityContext.class);
@@ -319,5 +328,10 @@ public class GraphApiIntegrationTests {
 
         verify(user, never()).joinGroup(any(GroupModel.class));
         verify(user, times(1)).leaveGroup(groupModel);
+
+        WireMock.verify(1, WireMock.getRequestedFor(
+            WireMock.urlPathEqualTo("/me/transitiveMemberOf/microsoft.graph.group"))
+            .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail"))
+        );
     }
 }
