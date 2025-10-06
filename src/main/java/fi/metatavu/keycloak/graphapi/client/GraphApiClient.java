@@ -17,6 +17,23 @@ import java.net.http.HttpResponse;
  */
 public class GraphApiClient {
 
+    private final String graphApiUrl;
+
+    /**
+     * Default constructor uses environment variable or default URL
+     */
+    public GraphApiClient() {
+        this.graphApiUrl = getDefaultGraphApiUrl();
+    }
+
+    /**
+     * Constructor for injecting custom Graph API URL (for testing)
+     * @param graphApiUrl base URL for Graph API
+     */
+    public GraphApiClient(String graphApiUrl) {
+        this.graphApiUrl = graphApiUrl;
+    }
+
     /**
      * Returns logged user's membership of groups
      *
@@ -27,7 +44,7 @@ public class GraphApiClient {
     public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroups(AccessTokenResponse accessToken) throws IOException {
         try (HttpClient client = HttpClient.newHttpClient()) {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(String.format("%s/me/transitiveMemberOf/microsoft.graph.group?$select=id,displayName,description,mail", getGraphApiUrl())))
+                    .uri(URI.create(String.format("%s/me/transitiveMemberOf/microsoft.graph.group?$select=id,displayName,description,mail", this.graphApiUrl)))
                     .header("Authorization", "Bearer " + accessToken.getToken())
                     .build();
 
@@ -59,7 +76,7 @@ public class GraphApiClient {
         HttpClient client = HttpClient.newHttpClient();
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("%s/me/manager", getGraphApiUrl())))
+                .uri(URI.create(String.format("%s/me/manager", this.graphApiUrl)))
                 .header("Authorization", "Bearer " + accessToken.getToken())
                 .build();
 
@@ -99,11 +116,11 @@ public class GraphApiClient {
      *
      * @return base URL for Microsoft Graph API
      */
-    private String getGraphApiUrl() {
-        if (System.getenv("GRAPH_API_URL") != null) {
-            return System.getenv("GRAPH_API_URL");
+    private String getDefaultGraphApiUrl() {
+        String envUrl = System.getenv("GRAPH_API_URL");
+        if (envUrl != null) {
+            return envUrl;
         }
-
         return "https://graph.microsoft.com/v1.0";
     }
 

@@ -86,7 +86,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
      * @param user user model
      * @param context brokered identity context
      */
-    private void updateGroups(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
+    protected void updateGroups(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
         AccessTokenResponse brokerToken = getBrokerToken(context);
         if (brokerToken == null) {
             logger.warn("Could not retrieve broker token from context, skipping group GraphAPI group mapping");
