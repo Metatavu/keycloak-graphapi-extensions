@@ -80,6 +80,37 @@ public class GraphApiClient {
     }
 
     /**
+     * Returns logged user
+     *
+     * @param accessToken access token
+     * @return logged user
+     * @throws IOException thrown when request fails
+     */
+    public GraphUser getUser(AccessTokenResponse accessToken) throws IOException {
+        HttpClient client = HttpClient.newHttpClient();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(String.format("%s/me", getGraphApiUrl())))
+                .header("Authorization", "Bearer " + accessToken.getToken())
+                .build();
+
+        try {
+            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            int statusCode = response.statusCode();
+
+            if (statusCode == 200) {
+                return deserialize(response.body(), GraphUser.class);
+            } else if (statusCode == 404) {
+                return null;
+            } else {
+                throw new IOException(String.format("Failed to execute: %s", statusCode));
+            }
+        } catch (InterruptedException e) {
+            throw new IOException(e);
+        }
+    }
+
+    /**
      * Deserializes JSON to object
      *
      * @param json JSON input stream

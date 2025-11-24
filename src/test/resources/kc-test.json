@@ -1255,6 +1255,127 @@
         "graph-api-user-manager-attribute-name": "Manager User Principal Name",
         "graph-api-user-manager-attribute-keycloak-name": "azure-ad-manager-user-principal-name"
       }
+    },
+    {
+      "id": "f2c85735-0fa3-4d26-a8f3-7e0dd065ee1d",
+      "name": "User id",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User ID",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-id"
+      }
+    },
+    {
+      "id": "b1a6260e-5bd9-4cfd-9684-2c315d1af7b1",
+      "name": "User given name",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Given Name",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-given-name"
+      }
+    },
+    {
+      "id": "2c5e4b7b-7b3d-461e-a0f5-68953356fcec",
+      "name": "User business phones",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Business Phones",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-business-phones"
+      }
+    },
+    {
+      "id": "a34c10b6-66e9-4be2-a5d1-084cc30abf9a",
+      "name": "User display name",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Display Name",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-display-name"
+      }
+    },
+    {
+      "id": "44d5f8bc-2da5-4e7c-bb6b-66fed5e3d53a",
+      "name": "User job title",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Job Title",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-job-title"
+      }
+    },
+    {
+      "id": "e52f36eb-d379-49f1-8da4-9cdf6f6cdb04",
+      "name": "User mail",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Mail",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-mail"
+      }
+    },
+    {
+      "id": "e6c9295f-47b3-4d92-823d-6c12f9410a5c",
+      "name": "User mobile phone",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Mobile Phone",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-mobile-phone"
+      }
+    },
+    {
+      "id": "44e3d871-3199-4b4a-8db7-5723db1126f2",
+      "name": "User office location",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Office Location",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-office-location"
+      }
+    },
+    {
+      "id": "0bc98c1d-0bc9-4774-8f2e-8dc9b4dc68f0",
+      "name": "User preferred language",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Preferred Language",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-preferred-language"
+      }
+    },
+    {
+      "id": "bda6e5f0-8b13-444c-8dfd-1bc255f7f068",
+      "name": "User surname",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User Surname",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-surname"
+      }
+    },
+    {
+      "id": "c14f5ff7-dcdf-4ac4-8272-76a40e382c3a",
+      "name": "User principal name",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-user-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-user-attribute-name": "User User Principal Name",
+        "graph-api-user-attribute-keycloak-name": "azure-ad-user-user-principal-name"
+      }
     }
   ],
   "components" : {
@@ -1333,7 +1454,7 @@
       "providerId" : "declarative-user-profile",
       "subComponents" : { },
       "config" : {
-        "kc.user.profile.config" : [ "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"azure-ad-manager-id\",\"displayName\":\"Manager ID (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-given-name\",\"displayName\":\"Manager Given Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-business-phones\",\"displayName\":\"Manager Business Phones (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":true},{\"name\":\"azure-ad-manager-display-name\",\"displayName\":\"Manager Display Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-job-title\",\"displayName\":\"Manager Job Title (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-mail\",\"displayName\":\"Manager Mail (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"email\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-mobile-phone\",\"displayName\":\"Manager Mobile Phone (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-office-location\",\"displayName\":\"Manager Office Location (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-preferred-language\",\"displayName\":\"Manager Preferred Language (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-surname\",\"displayName\":\"Manager Surname (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-user-principal-name\",\"displayName\":\"Manager User Principal Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"email\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"},{\"name\":\"azure-ad\",\"displayHeader\":\"Azure Ad\",\"displayDescription\":\"Attributes, which refer to Azure Ad\"}]}" ]
+        "kc.user.profile.config" : [ "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"azure-ad-manager-id\",\"displayName\":\"Manager ID (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-given-name\",\"displayName\":\"Manager Given Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-business-phones\",\"displayName\":\"Manager Business Phones (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":true},{\"name\":\"azure-ad-manager-display-name\",\"displayName\":\"Manager Display Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-job-title\",\"displayName\":\"Manager Job Title (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-mail\",\"displayName\":\"Manager Mail (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"email\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-mobile-phone\",\"displayName\":\"Manager Mobile Phone (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-office-location\",\"displayName\":\"Manager Office Location (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-preferred-language\",\"displayName\":\"Manager Preferred Language (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-surname\",\"displayName\":\"Manager Surname (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-manager-user-principal-name\",\"displayName\":\"Manager User Principal Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"email\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-id\",\"displayName\":\"User ID (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-given-name\",\"displayName\":\"User Given Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-business-phones\",\"displayName\":\"User Business Phones (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":true},{\"name\":\"azure-ad-user-display-name\",\"displayName\":\"User Display Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-job-title\",\"displayName\":\"User Job Title (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-mail\",\"displayName\":\"User Mail (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"email\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-mobile-phone\",\"displayName\":\"User Mobile Phone (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-office-location\",\"displayName\":\"User Office Location (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-preferred-language\",\"displayName\":\"User Preferred Language (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-surname\",\"displayName\":\"User Surname (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false},{\"name\":\"azure-ad-user-user-principal-name\",\"displayName\":\"User User Principal Name (Azure AD)\",\"validations\":{\"length\":{\"min\":1,\"max\":255},\"email\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"group\":\"azure-ad\",\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"},{\"name\":\"azure-ad\",\"displayHeader\":\"Azure Ad\",\"displayDescription\":\"Attributes, which refer to Azure Ad\"}]}" ]
       }
     } ],
     "org.keycloak.keys.KeyProvider" : [ {
