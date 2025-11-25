@@ -11,7 +11,6 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -19,8 +18,6 @@ import java.util.function.Function;
 public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProviderMapper {
     private static final Logger logger = Logger.getLogger(GraphApiUserIdentityProviderMapper.class);
 
-    private static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
-    private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final String PROVIDER_ID = "graph-api-user-identity-provider-mapper";
     private static final String CONFIG_GRAPH_API_USER_ATTRIBUTE = "graph-api-user-attribute-name";
     private static final String CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME = "graph-api-user-attribute-keycloak-name";
@@ -38,6 +35,19 @@ public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProvider
     private static final String USER_USER_PRINCIPAL_NAME = "User User Principal Name";
 
     private static final String USER_AUTH_NOTE = "graph-api-user";
+    private static final List<String> ATTRIBUTE_OPTIONS = List.of(
+            USER_ID,
+            USER_GIVEN_NAME,
+            USER_BUSINESS_PHONES,
+            USER_DISPLAY_NAME,
+            USER_JOB_TITLE,
+            USER_MAIL,
+            USER_MOBILE_PHONE,
+            USER_OFFICE_LOCATION,
+            USER_PREFERRED_LANGUAGE,
+            USER_SURNAME,
+            USER_USER_PRINCIPAL_NAME
+    );
     private static final Map<String, Function<GraphUser, Object>> ATTRIBUTE_EXTRACTORS = Map.ofEntries(
             Map.entry(USER_ID, GraphUser::getId),
             Map.entry(USER_GIVEN_NAME, GraphUser::getGivenName),
@@ -51,37 +61,15 @@ public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProvider
             Map.entry(USER_SURNAME, GraphUser::getSurname),
             Map.entry(USER_USER_PRINCIPAL_NAME, GraphUser::getUserPrincipalName)
     );
-
-    static {
-        ProviderConfigProperty graphApiProperty = new ProviderConfigProperty();
-        graphApiProperty.setName(CONFIG_GRAPH_API_USER_ATTRIBUTE);
-        graphApiProperty.setLabel("User attribute");
-        graphApiProperty.setHelpText("User attribute to map");
-        graphApiProperty.setType(ProviderConfigProperty.LIST_TYPE);
-
-        List<String> options = new ArrayList<>();
-        options.add(USER_ID);
-        options.add(USER_GIVEN_NAME);
-        options.add(USER_BUSINESS_PHONES);
-        options.add(USER_DISPLAY_NAME);
-        options.add(USER_JOB_TITLE);
-        options.add(USER_MAIL);
-        options.add(USER_MOBILE_PHONE);
-        options.add(USER_OFFICE_LOCATION);
-        options.add(USER_PREFERRED_LANGUAGE);
-        options.add(USER_SURNAME);
-        options.add(USER_USER_PRINCIPAL_NAME);
-
-        graphApiProperty.setOptions(options);
-        configProperties.add(graphApiProperty);
-
-        ProviderConfigProperty keycloakProperty = new ProviderConfigProperty();
-        keycloakProperty.setName(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);
-        keycloakProperty.setLabel("Keycloak attribute name");
-        keycloakProperty.setHelpText("Keycloak attribute to map the user attribute to");
-        keycloakProperty.setType(ProviderConfigProperty.USER_PROFILE_ATTRIBUTE_LIST_TYPE);
-        configProperties.add(keycloakProperty);
-    }
+    private static final List<ProviderConfigProperty> configProperties = GraphApiMapperUtils.buildConfigProperties(
+            CONFIG_GRAPH_API_USER_ATTRIBUTE,
+            "User attribute",
+            "User attribute to map",
+            ATTRIBUTE_OPTIONS,
+            CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME,
+            "Keycloak attribute name",
+            "Keycloak attribute to map the user attribute to"
+    );
 
     @Override
     public void importNewUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
@@ -113,7 +101,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProvider
 
     @Override
     public String[] getCompatibleProviders() {
-        return COMPATIBLE_PROVIDERS;
+        return GraphApiMapperUtils.COMPATIBLE_PROVIDERS;
     }
 
     @Override

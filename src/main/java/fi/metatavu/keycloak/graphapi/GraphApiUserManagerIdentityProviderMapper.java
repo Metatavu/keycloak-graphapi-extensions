@@ -11,7 +11,6 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -19,8 +18,6 @@ import java.util.function.Function;
 public class GraphApiUserManagerIdentityProviderMapper extends AbstractIdentityProviderMapper {
     private static final Logger logger = Logger.getLogger(GraphApiUserManagerIdentityProviderMapper.class);
 
-    private static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
-    private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final String PROVIDER_ID = "graph-api-user-manager-identity-provider-mapper";
     private static final String CONFIG_GRAPH_API_USER_MANAGER_ATTRIBUTE = "graph-api-user-manager-attribute-name";
     private static final String CONFIG_GRAPH_API_USER_MANAGER_ATTRIBUTE_KEYCLOAK_NAME = "graph-api-user-manager-attribute-keycloak-name";
@@ -38,6 +35,19 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractIdentityP
     private static final String MANAGER_USER_PRINCIPAL_NAME = "Manager User Principal Name";
 
     private static final String MANAGER_AUTH_NOTE = "graph-api-user-manager";
+    private static final List<String> ATTRIBUTE_OPTIONS = List.of(
+            MANAGER_ID,
+            MANAGER_GIVEN_NAME,
+            MANAGER_BUSINESS_PHONES,
+            MANAGER_DISPLAY_NAME,
+            MANAGER_JOB_TITLE,
+            MANAGER_MAIL,
+            MANAGER_MOBILE_PHONE,
+            MANAGER_OFFICE_LOCATION,
+            MANAGER_PREFERRED_LANGUAGE,
+            MANAGER_SURNAME,
+            MANAGER_USER_PRINCIPAL_NAME
+    );
     private static final Map<String, Function<GraphUser, Object>> ATTRIBUTE_EXTRACTORS = Map.ofEntries(
             Map.entry(MANAGER_ID, GraphUser::getId),
             Map.entry(MANAGER_GIVEN_NAME, GraphUser::getGivenName),
@@ -51,37 +61,15 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractIdentityP
             Map.entry(MANAGER_SURNAME, GraphUser::getSurname),
             Map.entry(MANAGER_USER_PRINCIPAL_NAME, GraphUser::getUserPrincipalName)
     );
-
-    static {
-        ProviderConfigProperty graphApiProperty = new ProviderConfigProperty();
-        graphApiProperty.setName(CONFIG_GRAPH_API_USER_MANAGER_ATTRIBUTE);
-        graphApiProperty.setLabel("Manager attribute");
-        graphApiProperty.setHelpText("Manager attribute to map");
-        graphApiProperty.setType(ProviderConfigProperty.LIST_TYPE);
-
-        List<String> options = new ArrayList<>();
-        options.add(MANAGER_ID);
-        options.add(MANAGER_GIVEN_NAME);
-        options.add(MANAGER_BUSINESS_PHONES);
-        options.add(MANAGER_DISPLAY_NAME);
-        options.add(MANAGER_JOB_TITLE);
-        options.add(MANAGER_MAIL);
-        options.add(MANAGER_MOBILE_PHONE);
-        options.add(MANAGER_OFFICE_LOCATION);
-        options.add(MANAGER_PREFERRED_LANGUAGE);
-        options.add(MANAGER_SURNAME);
-        options.add(MANAGER_USER_PRINCIPAL_NAME);
-
-        graphApiProperty.setOptions(options);
-        configProperties.add(graphApiProperty);
-
-        ProviderConfigProperty keycloakProperty = new ProviderConfigProperty();
-        keycloakProperty.setName(CONFIG_GRAPH_API_USER_MANAGER_ATTRIBUTE_KEYCLOAK_NAME);
-        keycloakProperty.setLabel("Keycloak attribute name");
-        keycloakProperty.setHelpText("Keycloak attribute to map the manager attribute to");
-        keycloakProperty.setType(ProviderConfigProperty.USER_PROFILE_ATTRIBUTE_LIST_TYPE);
-        configProperties.add(keycloakProperty);
-    }
+    private static final List<ProviderConfigProperty> configProperties = GraphApiMapperUtils.buildConfigProperties(
+            CONFIG_GRAPH_API_USER_MANAGER_ATTRIBUTE,
+            "Manager attribute",
+            "Manager attribute to map",
+            ATTRIBUTE_OPTIONS,
+            CONFIG_GRAPH_API_USER_MANAGER_ATTRIBUTE_KEYCLOAK_NAME,
+            "Keycloak attribute name",
+            "Keycloak attribute to map the manager attribute to"
+    );
 
     @Override
     public void importNewUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
@@ -119,7 +107,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractIdentityP
 
     @Override
     public String[] getCompatibleProviders() {
-        return COMPATIBLE_PROVIDERS;
+        return GraphApiMapperUtils.COMPATIBLE_PROVIDERS;
     }
 
     @Override

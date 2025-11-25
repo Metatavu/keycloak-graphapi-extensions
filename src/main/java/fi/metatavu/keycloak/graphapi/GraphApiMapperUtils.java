@@ -6,8 +6,11 @@ import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.models.UserModel;
+import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessTokenResponse;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -16,6 +19,8 @@ import java.util.function.Function;
  * Shared helpers for Graph API mappers to avoid duplicated logic.
  */
 final class GraphApiMapperUtils {
+
+    static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
 
     private GraphApiMapperUtils() {
     }
@@ -87,6 +92,26 @@ final class GraphApiMapperUtils {
         }
 
         updateUserAttribute(userModel, keycloakAttribute, extractor.apply(graphUser));
+    }
+
+    static List<ProviderConfigProperty> buildConfigProperties(String graphApiConfigName, String graphApiLabel, String graphApiHelp, List<String> options, String keycloakConfigName, String keycloakLabel, String keycloakHelp) {
+        ProviderConfigProperty graphApiProperty = new ProviderConfigProperty();
+        graphApiProperty.setName(graphApiConfigName);
+        graphApiProperty.setLabel(graphApiLabel);
+        graphApiProperty.setHelpText(graphApiHelp);
+        graphApiProperty.setType(ProviderConfigProperty.LIST_TYPE);
+        graphApiProperty.setOptions(options);
+
+        ProviderConfigProperty keycloakProperty = new ProviderConfigProperty();
+        keycloakProperty.setName(keycloakConfigName);
+        keycloakProperty.setLabel(keycloakLabel);
+        keycloakProperty.setHelpText(keycloakHelp);
+        keycloakProperty.setType(ProviderConfigProperty.USER_PROFILE_ATTRIBUTE_LIST_TYPE);
+
+        List<ProviderConfigProperty> config = new ArrayList<>();
+        config.add(graphApiProperty);
+        config.add(keycloakProperty);
+        return Collections.unmodifiableList(config);
     }
 
     @FunctionalInterface
