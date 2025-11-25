@@ -25,27 +25,7 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroups(AccessTokenResponse accessToken) throws IOException {
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(String.format("%s/me/transitiveMemberOf/microsoft.graph.group?$select=id,displayName,description,mail", getGraphApiUrl())))
-                    .header("Authorization", "Bearer " + accessToken.getToken())
-                    .build();
-
-            try {
-                HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-                int statusCode = response.statusCode();
-
-                if (statusCode == 200) {
-                    return deserialize(response.body(), TransitiveMemberOfGroupsResponse.class);
-                } else if (statusCode == 404) {
-                    return null;
-                } else {
-                    throw new IOException(String.format("Failed to execute: %s", statusCode));
-                }
-            } catch (InterruptedException e) {
-                throw new IOException(e);
-            }
-        }
+        return getGraphApiResource(accessToken, "me/transitiveMemberOf/microsoft.graph.group?$select=id,displayName,description,mail", TransitiveMemberOfGroupsResponse.class);
     }
 
     /**
@@ -56,27 +36,7 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public GraphUser getManager(AccessTokenResponse accessToken) throws IOException {
-        HttpClient client = HttpClient.newHttpClient();
-
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("%s/me/manager", getGraphApiUrl())))
-                .header("Authorization", "Bearer " + accessToken.getToken())
-                .build();
-
-        try {
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            int statusCode = response.statusCode();
-
-            if (statusCode == 200) {
-                return deserialize(response.body(), GraphUser.class);
-            } else if (statusCode == 404) {
-                return null;
-            } else {
-                throw new IOException(String.format("Failed to execute: %s", statusCode));
-            }
-        } catch (InterruptedException e) {
-            throw new IOException(e);
-        }
+        return getGraphApiResource(accessToken, "me/manager", GraphUser.class);
     }
 
     /**
@@ -87,26 +47,33 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public GraphUser getUser(AccessTokenResponse accessToken) throws IOException {
-        HttpClient client = HttpClient.newHttpClient();
+        return getGraphApiResource(accessToken, "me", GraphUser.class);
+    }
 
+    private <T> T getGraphApiResource(AccessTokenResponse accessToken, String path, Class<T> clazz) throws IOException {
+        HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("%s/me", getGraphApiUrl())))
+                .uri(URI.create(String.format("%s/%s", getGraphApiUrl(), path)))
                 .header("Authorization", "Bearer " + accessToken.getToken())
                 .build();
 
         try {
             HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            int statusCode = response.statusCode();
-
-            if (statusCode == 200) {
-                return deserialize(response.body(), GraphUser.class);
-            } else if (statusCode == 404) {
-                return null;
-            } else {
-                throw new IOException(String.format("Failed to execute: %s", statusCode));
-            }
+            return handleResponse(response, clazz);
         } catch (InterruptedException e) {
             throw new IOException(e);
+        }
+    }
+
+    private <T> T handleResponse(HttpResponse<InputStream> response, Class<T> clazz) throws IOException {
+        int statusCode = response.statusCode();
+
+        if (statusCode == 200) {
+            return deserialize(response.body(), clazz);
+        } else if (statusCode == 404) {
+            return null;
+        } else {
+            throw new IOException(String.format("Failed to execute: %s", statusCode));
         }
     }
 

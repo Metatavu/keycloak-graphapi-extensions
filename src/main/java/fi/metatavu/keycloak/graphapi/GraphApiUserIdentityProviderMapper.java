@@ -1,7 +1,5 @@
 package fi.metatavu.keycloak.graphapi;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
@@ -12,11 +10,11 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
-import org.keycloak.representations.AccessTokenResponse;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProviderMapper {
     private static final Logger logger = Logger.getLogger(GraphApiUserIdentityProviderMapper.class);
@@ -40,6 +38,19 @@ public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProvider
     private static final String USER_USER_PRINCIPAL_NAME = "User User Principal Name";
 
     private static final String USER_AUTH_NOTE = "graph-api-user";
+    private static final Map<String, Function<GraphUser, Object>> ATTRIBUTE_EXTRACTORS = Map.ofEntries(
+            Map.entry(USER_ID, GraphUser::getId),
+            Map.entry(USER_GIVEN_NAME, GraphUser::getGivenName),
+            Map.entry(USER_BUSINESS_PHONES, GraphUser::getBusinessPhones),
+            Map.entry(USER_DISPLAY_NAME, GraphUser::getDisplayName),
+            Map.entry(USER_JOB_TITLE, GraphUser::getJobTitle),
+            Map.entry(USER_MAIL, GraphUser::getMail),
+            Map.entry(USER_MOBILE_PHONE, GraphUser::getMobilePhone),
+            Map.entry(USER_OFFICE_LOCATION, GraphUser::getOfficeLocation),
+            Map.entry(USER_PREFERRED_LANGUAGE, GraphUser::getPreferredLanguage),
+            Map.entry(USER_SURNAME, GraphUser::getSurname),
+            Map.entry(USER_USER_PRINCIPAL_NAME, GraphUser::getUserPrincipalName)
+    );
 
     static {
         ProviderConfigProperty graphApiProperty = new ProviderConfigProperty();
@@ -82,32 +93,6 @@ public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProvider
         updateUserAttributes(context, mapperModel, user);
     }
 
-    private AccessTokenResponse getBrokerToken(BrokeredIdentityContext context) {
-        String token = context.getToken();
-        if (token == null) {
-            return null;
-        }
-
-        try {
-            return new ObjectMapper().readValue(token, AccessTokenResponse.class);
-        } catch (JsonProcessingException e) {
-            logger.error("Failed to parse token", e);
-            return null;
-        }
-    }
-
-    private void updateUserAttribute(UserModel user, String attributeName, Object value) {
-        if (value == null) {
-            user.removeAttribute(attributeName);
-        } else {
-            if (value instanceof List) {
-                user.setAttribute(attributeName, (List<String>) value);
-            } else {
-                user.setSingleAttribute(attributeName, value.toString());
-            }
-        }
-    }
-
     private void updateUserAttributes(BrokeredIdentityContext context, IdentityProviderMapperModel mapperModel, UserModel user) {
         String graphApiAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE);
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);
@@ -118,81 +103,12 @@ public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProvider
             return;
         }
 
-        for (Map.Entry<String, List<String>> attribute : user.getAttributes().entrySet()) {
-            logger.info(attribute.getKey() + " 1: " + attribute.getValue());
-        }
-
-        switch (graphApiAttribute) {
-            case USER_ID:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getId());
-                break;
-            case USER_GIVEN_NAME:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getGivenName());
-                break;
-            case USER_BUSINESS_PHONES:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getBusinessPhones());
-                break;
-            case USER_DISPLAY_NAME:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getDisplayName());
-                break;
-            case USER_JOB_TITLE:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getJobTitle());
-                break;
-            case USER_MAIL:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getMail());
-                break;
-            case USER_MOBILE_PHONE:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getMobilePhone());
-                break;
-            case USER_OFFICE_LOCATION:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getOfficeLocation());
-                break;
-            case USER_PREFERRED_LANGUAGE:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getPreferredLanguage());
-                break;
-            case USER_SURNAME:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getSurname());
-                break;
-            case USER_USER_PRINCIPAL_NAME:
-                updateUserAttribute(user, keycloakAttribute, graphUser.getUserPrincipalName());
-                break;
-            default:
-                logger.warnf("Unsupported Graph API user attribute: %s", graphApiAttribute);
-        }
-
-        for (Map.Entry<String, List<String>> attribute : user.getAttributes().entrySet()) {
-            logger.info(attribute.getKey() + " 2: " + attribute.getValue());
-        }
+        GraphApiMapperUtils.applyAttributeMapping(graphUser, graphApiAttribute, keycloakAttribute, user, ATTRIBUTE_EXTRACTORS, logger);
     }
 
     private GraphUser getUser(BrokeredIdentityContext context) {
-        String cachedUser = context.getAuthenticationSession().getAuthNote(USER_AUTH_NOTE);
-        if (cachedUser != null) {
-            try {
-                return new ObjectMapper().readValue(cachedUser, GraphUser.class);
-            } catch (JsonProcessingException e) {
-                logger.error("Failed to parse cached user", e);
-            }
-        }
-
-        AccessTokenResponse brokerToken = getBrokerToken(context);
-        if (brokerToken == null) {
-            logger.warn("Broker token is null, cannot retrieve user");
-            return null;
-        }
-
         GraphApiClient graphApiClient = new GraphApiClient();
-        try {
-            GraphUser graphUser = graphApiClient.getUser(brokerToken);
-            if (graphUser != null) {
-                context.getAuthenticationSession().setAuthNote(USER_AUTH_NOTE, new ObjectMapper().writeValueAsString(graphUser));
-            }
-
-            return graphUser;
-        } catch (Exception e) {
-            logger.error("Failed to get user", e);
-            return null;
-        }
+        return GraphApiMapperUtils.fetchGraphUser(context, logger, USER_AUTH_NOTE, graphApiClient::getUser);
     }
 
     @Override
