@@ -9,6 +9,7 @@ import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessTokenResponse;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -68,7 +69,7 @@ final class GraphApiMapperUtils {
         GraphUser graphUser;
         try {
             graphUser = fetcher.fetch(brokerToken);
-        } catch (Exception e) {
+        } catch (IOException e) {
             logger.error("Failed to get user", e);
             return null;
         }
@@ -116,6 +117,6 @@ final class GraphApiMapperUtils {
 
     @FunctionalInterface
     interface GraphUserFetcher {
-        GraphUser fetch(AccessTokenResponse accessToken) throws Exception;
+        GraphUser fetch(AccessTokenResponse accessToken) throws IOException;
     }
 }

@@ -58,7 +58,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
     }
 
     @Test
-    public void testGetManagerAttributes () {
+    void testGetManagerAttributes () {
         RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
         try {
             driver.get(getAccountUrl());
@@ -101,7 +101,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
     }
 
     @Test
-    public void testGetUserAttributes () {
+    void testGetUserAttributes () {
         RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
         try {
             driver.get(getAccountUrl());
