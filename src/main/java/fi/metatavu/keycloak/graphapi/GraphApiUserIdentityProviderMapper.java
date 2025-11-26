@@ -3,7 +3,6 @@ package fi.metatavu.keycloak.graphapi;
 import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
-import org.keycloak.broker.provider.AbstractIdentityProviderMapper;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.models.IdentityProviderMapperModel;
 import org.keycloak.models.KeycloakSession;
@@ -15,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProviderMapper {
+public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentityProviderMapper {
     private static final Logger logger = Logger.getLogger(GraphApiUserIdentityProviderMapper.class);
 
     private static final String PROVIDER_ID = "graph-api-user-identity-provider-mapper";
@@ -36,40 +35,44 @@ public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProvider
 
     private static final String USER_AUTH_NOTE = "graph-api-user";
     private static final List<String> ATTRIBUTE_OPTIONS = List.of(
-            USER_ID,
-            USER_GIVEN_NAME,
-            USER_BUSINESS_PHONES,
-            USER_DISPLAY_NAME,
-            USER_JOB_TITLE,
-            USER_MAIL,
-            USER_MOBILE_PHONE,
-            USER_OFFICE_LOCATION,
-            USER_PREFERRED_LANGUAGE,
-            USER_SURNAME,
-            USER_USER_PRINCIPAL_NAME
+        USER_ID,
+        USER_GIVEN_NAME,
+        USER_BUSINESS_PHONES,
+        USER_DISPLAY_NAME,
+        USER_JOB_TITLE,
+        USER_MAIL,
+        USER_MOBILE_PHONE,
+        USER_OFFICE_LOCATION,
+        USER_PREFERRED_LANGUAGE,
+        USER_SURNAME,
+        USER_USER_PRINCIPAL_NAME
     );
     private static final Map<String, Function<GraphUser, Object>> ATTRIBUTE_EXTRACTORS = Map.ofEntries(
-            Map.entry(USER_ID, GraphUser::getId),
-            Map.entry(USER_GIVEN_NAME, GraphUser::getGivenName),
-            Map.entry(USER_BUSINESS_PHONES, GraphUser::getBusinessPhones),
-            Map.entry(USER_DISPLAY_NAME, GraphUser::getDisplayName),
-            Map.entry(USER_JOB_TITLE, GraphUser::getJobTitle),
-            Map.entry(USER_MAIL, GraphUser::getMail),
-            Map.entry(USER_MOBILE_PHONE, GraphUser::getMobilePhone),
-            Map.entry(USER_OFFICE_LOCATION, GraphUser::getOfficeLocation),
-            Map.entry(USER_PREFERRED_LANGUAGE, GraphUser::getPreferredLanguage),
-            Map.entry(USER_SURNAME, GraphUser::getSurname),
-            Map.entry(USER_USER_PRINCIPAL_NAME, GraphUser::getUserPrincipalName)
+        Map.entry(USER_ID, GraphUser::getId),
+        Map.entry(USER_GIVEN_NAME, GraphUser::getGivenName),
+        Map.entry(USER_BUSINESS_PHONES, GraphUser::getBusinessPhones),
+        Map.entry(USER_DISPLAY_NAME, GraphUser::getDisplayName),
+        Map.entry(USER_JOB_TITLE, GraphUser::getJobTitle),
+        Map.entry(USER_MAIL, GraphUser::getMail),
+        Map.entry(USER_MOBILE_PHONE, GraphUser::getMobilePhone),
+        Map.entry(USER_OFFICE_LOCATION, GraphUser::getOfficeLocation),
+        Map.entry(USER_PREFERRED_LANGUAGE, GraphUser::getPreferredLanguage),
+        Map.entry(USER_SURNAME, GraphUser::getSurname),
+        Map.entry(USER_USER_PRINCIPAL_NAME, GraphUser::getUserPrincipalName)
     );
     private static final List<ProviderConfigProperty> configProperties = GraphApiMapperUtils.buildConfigProperties(
-            CONFIG_GRAPH_API_USER_ATTRIBUTE,
-            "User attribute",
-            "User attribute to map",
-            ATTRIBUTE_OPTIONS,
-            CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME,
-            "Keycloak attribute name",
-            "Keycloak attribute to map the user attribute to"
+        CONFIG_GRAPH_API_USER_ATTRIBUTE,
+        "User attribute",
+        "User attribute to map",
+        ATTRIBUTE_OPTIONS,
+        CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME,
+        "Keycloak attribute name",
+        "Keycloak attribute to map the user attribute to"
     );
+
+    public GraphApiUserIdentityProviderMapper() {
+        super(PROVIDER_ID, "Graph API User Attributes", "Graph API User Identity Provider Mapper", configProperties);
+    }
 
     @Override
     public void importNewUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
@@ -94,39 +97,14 @@ public class GraphApiUserIdentityProviderMapper extends AbstractIdentityProvider
         GraphApiMapperUtils.applyAttributeMapping(graphUser, graphApiAttribute, keycloakAttribute, user, ATTRIBUTE_EXTRACTORS, logger);
     }
 
+    /**
+     * Returns user of the context
+     *
+     * @param context brokered identity context
+     * @return user of the context
+     */
     private GraphUser getUser(BrokeredIdentityContext context) {
         GraphApiClient graphApiClient = new GraphApiClient();
         return GraphApiMapperUtils.fetchGraphUser(context, logger, USER_AUTH_NOTE, graphApiClient::getUser);
     }
-
-    @Override
-    public String[] getCompatibleProviders() {
-        return GraphApiMapperUtils.COMPATIBLE_PROVIDERS;
-    }
-
-    @Override
-    public String getDisplayCategory() {
-        return "Graph API";
-    }
-
-    @Override
-    public String getDisplayType() {
-        return "Graph API User Attributes";
-    }
-
-    @Override
-    public String getHelpText() {
-        return "Graph API User Identity Provider Mapper";
-    }
-
-    @Override
-    public List<ProviderConfigProperty> getConfigProperties() {
-        return configProperties;
-    }
-
-    @Override
-    public String getId() {
-        return PROVIDER_ID;
-    }
-
 }
