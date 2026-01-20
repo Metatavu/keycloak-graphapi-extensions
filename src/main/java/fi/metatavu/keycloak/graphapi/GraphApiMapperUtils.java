@@ -1,0 +1,137 @@
+package fi.metatavu.keycloak.graphapi;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import fi.metatavu.keycloak.graphapi.model.GraphUser;
+import org.jboss.logging.Logger;
+import org.keycloak.broker.provider.BrokeredIdentityContext;
+import org.keycloak.models.UserModel;
+import org.keycloak.provider.ProviderConfigProperty;
+import org.keycloak.representations.AccessTokenResponse;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+
+/**
+ * Shared helpers for Graph API mappers to avoid duplicated logic.
+ */
+final class GraphApiMapperUtils {
+
+    static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
+
+    private GraphApiMapperUtils() {
+    }
+
+    /**
+     * Parses the broker token from the context.
+     */
+    static AccessTokenResponse parseBrokerToken(BrokeredIdentityContext context, Logger logger) {
+        String token = context.getToken();
+        if (token == null) {
+            return null;
+        }
+
+        try {
+            return new ObjectMapper().readValue(token, AccessTokenResponse.class);
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to parse token", e);
+            return null;
+        }
+    }
+
+    /**
+     * Updates a user attribute in Keycloak.
+     */
+    static void updateUserAttribute(UserModel user, String attributeName, Object value) {
+        if (value == null) {
+            user.removeAttribute(attributeName);
+        } else if (value instanceof List) {
+            user.setAttribute(attributeName, (List<String>) value);
+        } else {
+            user.setSingleAttribute(attributeName, value.toString());
+        }
+    }
+
+    /**
+     * Fetches a GraphUser from the context or by calling the fetcher.
+     */
+    static GraphUser fetchGraphUser(BrokeredIdentityContext context, Logger logger, String cacheKey, GraphUserFetcher fetcher) {
+        String cachedUser = context.getAuthenticationSession().getAuthNote(cacheKey);
+        if (cachedUser != null) {
+            try {
+                return new ObjectMapper().readValue(cachedUser, GraphUser.class);
+            } catch (JsonProcessingException e) {
+                logger.error("Failed to parse cached user", e);
+            }
+        }
+
+        AccessTokenResponse brokerToken = parseBrokerToken(context, logger);
+        if (brokerToken == null) {
+            logger.warn("Broker token is null, cannot retrieve user");
+            return null;
+        }
+
+        GraphUser graphUser;
+        try {
+            graphUser = fetcher.fetch(brokerToken);
+        } catch (IOException e) {
+            logger.error("Failed to get user", e);
+            return null;
+        }
+
+        if (graphUser != null) {
+            try {
+                context.getAuthenticationSession().setAuthNote(cacheKey, new ObjectMapper().writeValueAsString(graphUser));
+            } catch (JsonProcessingException e) {
+                logger.error("Failed to cache user", e);
+            }
+        }
+
+        return graphUser;
+    }
+
+    /**
+     * Applies attribute mapping from a GraphUser to a Keycloak UserModel.
+     */
+    static void applyAttributeMapping(GraphUser graphUser, String sourceAttribute, String keycloakAttribute, UserModel userModel, Map<String, Function<GraphUser, Object>> mapping, Logger logger) {
+        Function<GraphUser, Object> extractor = mapping.get(sourceAttribute);
+        if (extractor == null) {
+            logger.warnf("Unsupported Graph API user attribute: %s", sourceAttribute);
+            return;
+        }
+
+        updateUserAttribute(userModel, keycloakAttribute, extractor.apply(graphUser));
+    }
+
+    /**
+     * Builds configuration properties for the Graph API and Keycloak mapping.
+     */
+    static List<ProviderConfigProperty> buildConfigProperties(String graphApiConfigName, String graphApiLabel, String graphApiHelp, List<String> options, String keycloakConfigName, String keycloakLabel, String keycloakHelp) {
+        ProviderConfigProperty graphApiProperty = new ProviderConfigProperty();
+        graphApiProperty.setName(graphApiConfigName);
+        graphApiProperty.setLabel(graphApiLabel);
+        graphApiProperty.setHelpText(graphApiHelp);
+        graphApiProperty.setType(ProviderConfigProperty.LIST_TYPE);
+        graphApiProperty.setOptions(options);
+
+        ProviderConfigProperty keycloakProperty = new ProviderConfigProperty();
+        keycloakProperty.setName(keycloakConfigName);
+        keycloakProperty.setLabel(keycloakLabel);
+        keycloakProperty.setHelpText(keycloakHelp);
+        keycloakProperty.setType(ProviderConfigProperty.USER_PROFILE_ATTRIBUTE_LIST_TYPE);
+
+        List<ProviderConfigProperty> config = new ArrayList<>();
+        config.add(graphApiProperty);
+        config.add(keycloakProperty);
+        return Collections.unmodifiableList(config);
+    }
+
+    @FunctionalInterface
+    interface GraphUserFetcher {
+        GraphUser fetch(AccessTokenResponse accessToken) throws IOException;
+    }
+}

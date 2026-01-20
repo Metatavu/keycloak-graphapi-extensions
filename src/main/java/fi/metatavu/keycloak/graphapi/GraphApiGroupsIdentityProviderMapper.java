@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
 import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
 import org.jboss.logging.Logger;
-import org.keycloak.broker.provider.AbstractIdentityProviderMapper;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.models.*;
 import org.keycloak.provider.ProviderConfigProperty;
@@ -17,12 +16,11 @@ import java.util.stream.Collectors;
 /**
  * GraphAPI groups identity provider mapper
  */
-public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProviderMapper {
+public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdentityProviderMapper {
 
     private static final Logger logger = Logger.getLogger(GraphApiGroupsIdentityProviderMapper.class);
     private static final String PROVIDER_ID = "graph-api-groups-identity-provider-mapper";
     private static final Set<IdentityProviderSyncMode> IDENTITY_PROVIDER_SYNC_MODES = new HashSet<>(Arrays.asList(IdentityProviderSyncMode.values()));
-    private static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final String CONFIG_GRAPH_API_GROUP_MAPPING = "graph-api-group-mapping";
 
@@ -35,39 +33,13 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractIdentityProvid
         configProperties.add(claimsProperty);
     }
 
+    public GraphApiGroupsIdentityProviderMapper() {
+        super(PROVIDER_ID, "Graph API Groups", "Graph API Groups Identity Provider Mapper", configProperties);
+    }
+
     @Override
     public boolean supportsSyncMode(IdentityProviderSyncMode syncMode) {
         return IDENTITY_PROVIDER_SYNC_MODES.contains(syncMode);
-    }
-
-    @Override
-    public String[] getCompatibleProviders() {
-        return COMPATIBLE_PROVIDERS;
-    }
-
-    @Override
-    public String getDisplayCategory() {
-        return "Graph API";
-    }
-
-    @Override
-    public String getDisplayType() {
-        return "Graph API Groups";
-    }
-
-    @Override
-    public String getHelpText() {
-        return "Graph API Groups Identity Provider Mapper";
-    }
-
-    @Override
-    public List<ProviderConfigProperty> getConfigProperties() {
-        return configProperties;
-    }
-
-    @Override
-    public String getId() {
-        return PROVIDER_ID;
     }
 
     @Override
