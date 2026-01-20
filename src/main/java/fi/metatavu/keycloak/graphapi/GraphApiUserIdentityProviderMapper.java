@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
+/**
+ * GraphAPI user identity provider mapper
+ */
 public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentityProviderMapper {
     private static final Logger logger = Logger.getLogger(GraphApiUserIdentityProviderMapper.class);
 
@@ -70,20 +73,32 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         "Keycloak attribute to map the user attribute to"
     );
 
+    /**
+     * Constructor for GraphApiUserIdentityProviderMapper.
+     */
     public GraphApiUserIdentityProviderMapper() {
         super(PROVIDER_ID, "Graph API User Attributes", "Graph API User Identity Provider Mapper", configProperties);
     }
 
+    /**
+     * Imports a new user into Keycloak.
+     */
     @Override
     public void importNewUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
         updateUserAttributes(context, mapperModel, user);
     }
 
+    /**
+     * Updates an existing user in Keycloak.
+     */
     @Override
     public void updateBrokeredUser(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
         updateUserAttributes(context, mapperModel, user);
     }
 
+    /**
+     * Updates user attributes in Keycloak.
+     */
     private void updateUserAttributes(BrokeredIdentityContext context, IdentityProviderMapperModel mapperModel, UserModel user) {
         String graphApiAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE);
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);

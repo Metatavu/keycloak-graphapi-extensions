@@ -50,6 +50,15 @@ public class GraphApiClient {
         return getGraphApiResource(accessToken, "me", GraphUser.class);
     }
 
+    /**
+     * Fetches a resource from the Microsoft Graph API.
+     *
+     * @param accessToken access token
+     * @param path API path
+     * @param clazz target class
+     * @return resource
+     * @throws IOException thrown when request fails
+     */
     private <T> T getGraphApiResource(AccessTokenResponse accessToken, String path, Class<T> clazz) throws IOException {
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
@@ -65,6 +74,14 @@ public class GraphApiClient {
         }
     }
 
+    /**
+     * Handles the HTTP response from the Microsoft Graph API.
+     *
+     * @param response HTTP response
+     * @param clazz target class
+     * @return resource
+     * @throws IOException thrown when response handling fails
+     */
     private <T> T handleResponse(HttpResponse<InputStream> response, Class<T> clazz) throws IOException {
         int statusCode = response.statusCode();
 

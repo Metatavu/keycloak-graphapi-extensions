@@ -26,6 +26,9 @@ final class GraphApiMapperUtils {
     private GraphApiMapperUtils() {
     }
 
+    /**
+     * Parses the broker token from the context.
+     */
     static AccessTokenResponse parseBrokerToken(BrokeredIdentityContext context, Logger logger) {
         String token = context.getToken();
         if (token == null) {
@@ -40,6 +43,9 @@ final class GraphApiMapperUtils {
         }
     }
 
+    /**
+     * Updates a user attribute in Keycloak.
+     */
     static void updateUserAttribute(UserModel user, String attributeName, Object value) {
         if (value == null) {
             user.removeAttribute(attributeName);
@@ -50,6 +56,9 @@ final class GraphApiMapperUtils {
         }
     }
 
+    /**
+     * Fetches a GraphUser from the context or by calling the fetcher.
+     */
     static GraphUser fetchGraphUser(BrokeredIdentityContext context, Logger logger, String cacheKey, GraphUserFetcher fetcher) {
         String cachedUser = context.getAuthenticationSession().getAuthNote(cacheKey);
         if (cachedUser != null) {
@@ -85,6 +94,9 @@ final class GraphApiMapperUtils {
         return graphUser;
     }
 
+    /**
+     * Applies attribute mapping from a GraphUser to a Keycloak UserModel.
+     */
     static void applyAttributeMapping(GraphUser graphUser, String sourceAttribute, String keycloakAttribute, UserModel userModel, Map<String, Function<GraphUser, Object>> mapping, Logger logger) {
         Function<GraphUser, Object> extractor = mapping.get(sourceAttribute);
         if (extractor == null) {
@@ -95,6 +107,9 @@ final class GraphApiMapperUtils {
         updateUserAttribute(userModel, keycloakAttribute, extractor.apply(graphUser));
     }
 
+    /**
+     * Builds configuration properties for the Graph API and Keycloak mapping.
+     */
     static List<ProviderConfigProperty> buildConfigProperties(String graphApiConfigName, String graphApiLabel, String graphApiHelp, List<String> options, String keycloakConfigName, String keycloakLabel, String keycloakHelp) {
         ProviderConfigProperty graphApiProperty = new ProviderConfigProperty();
         graphApiProperty.setName(graphApiConfigName);
