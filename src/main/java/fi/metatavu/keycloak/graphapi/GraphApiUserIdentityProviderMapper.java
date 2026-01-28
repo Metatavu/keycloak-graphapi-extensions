@@ -1,6 +1,8 @@
 package fi.metatavu.keycloak.graphapi;
 
 import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
+import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
+import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsResponse;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
@@ -9,9 +11,11 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
+import org.keycloak.representations.AccessTokenResponse;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -29,6 +33,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
     private static final String USER_BUSINESS_PHONES = "User Business Phones";
     private static final String USER_DISPLAY_NAME = "User Display Name";
     private static final String USER_JOB_TITLE = "User Job Title";
+    private static final String USER_GROUP_NAMES = "User Group Names";
     private static final String USER_MAIL = "User Mail";
     private static final String USER_MOBILE_PHONE = "User Mobile Phone";
     private static final String USER_OFFICE_LOCATION = "User Office Location";
@@ -43,6 +48,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         USER_BUSINESS_PHONES,
         USER_DISPLAY_NAME,
         USER_JOB_TITLE,
+        USER_GROUP_NAMES,
         USER_MAIL,
         USER_MOBILE_PHONE,
         USER_OFFICE_LOCATION,
@@ -103,6 +109,11 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         String graphApiAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE);
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);
 
+        if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
+            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, getUserGroupNames(context));
+            return;
+        }
+
         GraphUser graphUser = getUser(context);
         if (graphUser == null) {
             logger.warn("Could not retrieve user from Graph API, skipping user update");
@@ -121,5 +132,30 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
     private GraphUser getUser(BrokeredIdentityContext context) {
         GraphApiClient graphApiClient = new GraphApiClient();
         return GraphApiMapperUtils.fetchGraphUser(context, logger, USER_AUTH_NOTE, graphApiClient::getUser);
+    }
+
+    private List<String> getUserGroupNames(BrokeredIdentityContext context) {
+        AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
+        if (brokerToken == null) {
+            logger.warn("Broker token is null, cannot retrieve user groups");
+            return null;
+        }
+
+        GraphApiClient graphApiClient = new GraphApiClient();
+        try {
+            TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(brokerToken);
+            if (response == null || response.getValue() == null) {
+                return null;
+            }
+
+            return response.getValue().stream()
+                .map(TransitiveMemberOfGroup::getDisplayName)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .toList();
+        } catch (Exception e) {
+            logger.error("Failed to get user groups", e);
+            return null;
+        }
     }
 }

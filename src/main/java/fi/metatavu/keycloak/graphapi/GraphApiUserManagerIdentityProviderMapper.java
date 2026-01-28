@@ -1,6 +1,8 @@
 package fi.metatavu.keycloak.graphapi;
 
 import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
+import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
+import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsResponse;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
@@ -9,9 +11,11 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
+import org.keycloak.representations.AccessTokenResponse;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiIdentityProviderMapper {
@@ -26,6 +30,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
     private static final String MANAGER_BUSINESS_PHONES = "Manager Business Phones";
     private static final String MANAGER_DISPLAY_NAME = "Manager Display Name";
     private static final String MANAGER_JOB_TITLE = "Manager Job Title";
+    private static final String MANAGER_GROUP_NAMES = "Manager Group Names";
     private static final String MANAGER_MAIL = "Manager Mail";
     private static final String MANAGER_MOBILE_PHONE = "Manager Mobile Phone";
     private static final String MANAGER_OFFICE_LOCATION = "Manager Office Location";
@@ -40,6 +45,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
         MANAGER_BUSINESS_PHONES,
         MANAGER_DISPLAY_NAME,
         MANAGER_JOB_TITLE,
+        MANAGER_GROUP_NAMES,
         MANAGER_MAIL,
         MANAGER_MOBILE_PHONE,
         MANAGER_OFFICE_LOCATION,
@@ -94,6 +100,11 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
             return;
         }
 
+        if (MANAGER_GROUP_NAMES.equals(graphApiAttribute)) {
+            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, getManagerGroupNames(context, manager));
+            return;
+        }
+
         GraphApiMapperUtils.applyAttributeMapping(manager, graphApiAttribute, keycloakAttribute, user, ATTRIBUTE_EXTRACTORS, logger);
     }
 
@@ -106,5 +117,35 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
     private GraphUser getManager(BrokeredIdentityContext context) {
         GraphApiClient graphApiClient = new GraphApiClient();
         return GraphApiMapperUtils.fetchGraphUser(context, logger, MANAGER_AUTH_NOTE, graphApiClient::getManager);
+    }
+
+    private List<String> getManagerGroupNames(BrokeredIdentityContext context, GraphUser manager) {
+        AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
+        if (brokerToken == null) {
+            logger.warn("Broker token is null, cannot retrieve manager groups");
+            return null;
+        }
+
+        if (manager.getId() == null) {
+            logger.warn("Manager id is null, cannot retrieve manager groups");
+            return null;
+        }
+
+        GraphApiClient graphApiClient = new GraphApiClient();
+        try {
+            TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroupsForUser(brokerToken, manager.getId());
+            if (response == null || response.getValue() == null) {
+                return null;
+            }
+
+            return response.getValue().stream()
+                .map(TransitiveMemberOfGroup::getDisplayName)
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .toList();
+        } catch (Exception e) {
+            logger.error("Failed to get manager groups", e);
+            return null;
+        }
     }
 }
