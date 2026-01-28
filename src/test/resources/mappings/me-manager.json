@@ -5,6 +5,6 @@
   },
   "response": {
     "status": 200,
-    "body": "{\n  \"@odata.context\": \"https://graph.microsoft.com/v1.0/$metadata#directoryObjects/$entity\",\n  \"@odata.type\": \"#microsoft.graph.user\",\n  \"id\": \"24fcbca3-c3e2-48bf-9ffc-c7f81b81483d\",\n  \"businessPhones\": [\n    \"+1 205 555 0108\"\n  ],\n  \"displayName\": \"Diego Siciliani\",\n  \"givenName\": \"Diego\",\n  \"jobTitle\": \"CVP Finance\",\n  \"mail\": \"DiegoS@M365x214355.onmicrosoft.com\",\n  \"mobilePhone\": null,\n  \"officeLocation\": \"14/1108\",\n  \"preferredLanguage\": \"en-US\",\n  \"surname\": \"Siciliani\",\n  \"userPrincipalName\": \"DiegoS@M365x214355.onmicrosoft.com\"\n}"
+    "body": "{\n  \"@odata.context\": \"https://graph.microsoft.com/v1.0/$metadata#directoryObjects/$entity\",\n  \"@odata.type\": \"#microsoft.graph.user\",\n  \"id\": \"24fcbca3-c3e2-48bf-9ffc-c7f81b81483d\",\n  \"businessPhones\": [\n    \"+1 205 555 0108\"\n  ],\n  \"displayName\": \"Diego Siciliani\",\n  \"givenName\": \"Diego\",\n  \"jobTitle\": \"CVP Finance\",\n  \"mail\": \"diegos@m365x214355.onmicrosoft.com\",\n  \"mobilePhone\": null,\n  \"officeLocation\": \"14/1108\",\n  \"preferredLanguage\": \"en-US\",\n  \"surname\": \"Siciliani\",\n  \"userPrincipalName\": \"diegos@m365x214355.onmicrosoft.com\"\n}"
   }
 }
