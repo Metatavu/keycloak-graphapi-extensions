@@ -138,14 +138,14 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
         if (brokerToken == null) {
             logger.warn("Broker token is null, cannot retrieve user groups");
-            return null;
+            return List.of();
         }
 
         GraphApiClient graphApiClient = new GraphApiClient();
         try {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(brokerToken);
             if (response == null || response.getValue() == null) {
-                return null;
+                return List.of();
             }
 
             return response.getValue().stream()
@@ -155,7 +155,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
                 .toList();
         } catch (Exception e) {
             logger.error("Failed to get user groups", e);
-            return null;
+            return List.of();
         }
     }
 }

@@ -123,19 +123,19 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
         AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
         if (brokerToken == null) {
             logger.warn("Broker token is null, cannot retrieve manager groups");
-            return null;
+            return List.of();
         }
 
         if (manager.getId() == null) {
             logger.warn("Manager id is null, cannot retrieve manager groups");
-            return null;
+            return List.of();
         }
 
         GraphApiClient graphApiClient = new GraphApiClient();
         try {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroupsForUser(brokerToken, manager.getId());
             if (response == null || response.getValue() == null) {
-                return null;
+                return List.of();
             }
 
             return response.getValue().stream()
@@ -145,7 +145,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
                 .toList();
         } catch (Exception e) {
             logger.error("Failed to get manager groups", e);
-            return null;
+            return List.of();
         }
     }
 }
