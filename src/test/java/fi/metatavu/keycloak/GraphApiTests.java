@@ -74,12 +74,12 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-business-phones0"), "+1 205 555 0108");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-display-name"), "Diego Siciliani");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-job-title"), "CVP Finance");
-            waitAndAssertInputValue(driver, By.id("azure-ad-manager-mail"), "DiegoS@M365x214355.onmicrosoft.com");
+            waitAndAssertInputValue(driver, By.id("azure-ad-manager-mail"), "diegos@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-mobile-phone"), "");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-office-location"), "14/1108");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-preferred-language"), "en-US");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-surname"), "Siciliani");
-            waitAndAssertInputValue(driver, By.id("azure-ad-manager-user-principal-name"), "DiegoS@M365x214355.onmicrosoft.com");
+            waitAndAssertInputValue(driver, By.id("azure-ad-manager-user-principal-name"), "diegos@m365x214355.onmicrosoft.com");
 
             // Verify that the manager endpoint was called just once
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/me/manager")));
@@ -117,12 +117,12 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-business-phones0"), "+1 425 555 0102");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-display-name"), "Megan Bowen");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-job-title"), "Auditor");
-            waitAndAssertInputValue(driver, By.id("azure-ad-user-mail"), "MeganB@M365x214355.onmicrosoft.com");
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-mail"), "meganb@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mobile-phone"), "+1 425 555 0110");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-office-location"), "18/2111");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-preferred-language"), "en-US");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-surname"), "Bowen");
-            waitAndAssertInputValue(driver, By.id("azure-ad-user-user-principal-name"), "MeganB@M365x214355.onmicrosoft.com");
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-user-principal-name"), "meganb@m365x214355.onmicrosoft.com");
 
             // Verify that the user endpoint was called just once
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/me")));

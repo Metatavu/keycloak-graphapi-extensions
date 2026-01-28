@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * User model for Microsoft Graph API
@@ -85,7 +86,7 @@ public class GraphUser {
     }
 
     public void setMail(String mail) {
-        this.mail = mail;
+        this.mail = mail == null ? null : mail.toLowerCase(Locale.ROOT);
     }
 
     public String getMobilePhone() {

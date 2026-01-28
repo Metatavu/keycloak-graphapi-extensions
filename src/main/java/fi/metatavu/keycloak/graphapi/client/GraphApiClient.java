@@ -29,6 +29,18 @@ public class GraphApiClient {
     }
 
     /**
+     * Returns user's membership of groups by user id
+     *
+     * @param accessToken access token
+     * @param userId user id
+     * @return user's membership of groups
+     * @throws IOException thrown when request fails
+     */
+    public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroupsForUser(AccessTokenResponse accessToken, String userId) throws IOException {
+        return getGraphApiResource(accessToken, String.format("users/%s/transitiveMemberOf/microsoft.graph.group?$select=id,displayName,description,mail", userId), TransitiveMemberOfGroupsResponse.class);
+    }
+
+    /**
      * Returns logged user's manager
      *
      * @param accessToken access token

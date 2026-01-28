@@ -5,6 +5,6 @@
   },
   "response": {
     "status": 200,
-    "body": "{\n  \"@odata.context\": \"https://graph.microsoft.com/v1.0/$metadata#users/$entity\",\n  \"@odata.type\": \"#microsoft.graph.user\",\n  \"id\": \"c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110\",\n  \"businessPhones\": [\n    \"+1 425 555 0102\"\n  ],\n  \"displayName\": \"Megan Bowen\",\n  \"givenName\": \"Megan\",\n  \"jobTitle\": \"Auditor\",\n  \"mail\": \"MeganB@M365x214355.onmicrosoft.com\",\n  \"mobilePhone\": \"+1 425 555 0110\",\n  \"officeLocation\": \"18/2111\",\n  \"preferredLanguage\": \"en-US\",\n  \"surname\": \"Bowen\",\n  \"userPrincipalName\": \"MeganB@M365x214355.onmicrosoft.com\"\n}"
+    "body": "{\n  \"@odata.context\": \"https://graph.microsoft.com/v1.0/$metadata#users/$entity\",\n  \"@odata.type\": \"#microsoft.graph.user\",\n  \"id\": \"c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110\",\n  \"businessPhones\": [\n    \"+1 425 555 0102\"\n  ],\n  \"displayName\": \"Megan Bowen\",\n  \"givenName\": \"Megan\",\n  \"jobTitle\": \"Auditor\",\n  \"mail\": \"meganb@m365x214355.onmicrosoft.com\",\n  \"mobilePhone\": \"+1 425 555 0110\",\n  \"officeLocation\": \"18/2111\",\n  \"preferredLanguage\": \"en-US\",\n  \"surname\": \"Bowen\",\n  \"userPrincipalName\": \"meganb@m365x214355.onmicrosoft.com\"\n}"
   }
 }
