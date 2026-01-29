@@ -110,7 +110,9 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);
 
         if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
-            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, getUserGroupNames(context));
+            List<String> groupNames = getUserGroupNames(context);
+            logger.infof("Resolved user group names: %s", groupNames);
+            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
             return;
         }
 
@@ -145,14 +147,17 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         try {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(brokerToken);
             if (response == null || response.getValue() == null) {
+                logger.info("Graph API user groups response is empty");
                 return List.of();
             }
 
-            return response.getValue().stream()
+            List<String> groupNames = response.getValue().stream()
                 .map(TransitiveMemberOfGroup::getDisplayName)
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .toList();
+            logger.infof("Graph API returned %d user groups", groupNames.size());
+            return groupNames;
         } catch (Exception e) {
             logger.error("Failed to get user groups", e);
             return List.of();
