@@ -154,7 +154,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
             List<String> groupIds = response.getValue().stream()
                 .map(TransitiveMemberOfGroup::getId)
                 .filter(Objects::nonNull)
-                .map(String::trim)
+                .map(Object::toString)
                 .toList();
             logger.infof("Graph API returned %d user groups", groupIds.size());
             return groupIds;
