@@ -110,9 +110,9 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);
 
         if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
-            List<String> groupNames = getUserGroupNames(context);
-            logger.infof("Resolved user group names: %s", groupNames);
-            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
+            List<String> groupIds = getUserGroupIds(context);
+            logger.infof("Resolved user group ids: %s", groupIds);
+            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupIds);
             return;
         }
 
@@ -136,7 +136,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         return GraphApiMapperUtils.fetchGraphUser(context, logger, USER_AUTH_NOTE, graphApiClient::getUser);
     }
 
-    private List<String> getUserGroupNames(BrokeredIdentityContext context) {
+    private List<String> getUserGroupIds(BrokeredIdentityContext context) {
         AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
         if (brokerToken == null) {
             logger.warn("Broker token is null, cannot retrieve user groups");
@@ -151,13 +151,13 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
                 return List.of();
             }
 
-            List<String> groupNames = response.getValue().stream()
-                .map(TransitiveMemberOfGroup::getDisplayName)
+            List<String> groupIds = response.getValue().stream()
+                .map(TransitiveMemberOfGroup::getId)
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .toList();
-            logger.infof("Graph API returned %d user groups", groupNames.size());
-            return groupNames;
+            logger.infof("Graph API returned %d user groups", groupIds.size());
+            return groupIds;
         } catch (Exception e) {
             logger.error("Failed to get user groups", e);
             return List.of();
