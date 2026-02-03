@@ -101,9 +101,9 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
         }
 
         if (MANAGER_GROUP_NAMES.equals(graphApiAttribute)) {
-            List<String> groupIds = getManagerGroupIds(context, manager);
-            logger.infof("Resolved manager group ids: %s", groupIds);
-            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupIds);
+            List<String> groupNames = getManagerGroupNames(context, manager);
+            logger.infof("Resolved manager group names: %s", groupNames);
+            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
             return;
         }
 
@@ -121,7 +121,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
         return GraphApiMapperUtils.fetchGraphUser(context, logger, MANAGER_AUTH_NOTE, graphApiClient::getManager);
     }
 
-    private List<String> getManagerGroupIds(BrokeredIdentityContext context, GraphUser manager) {
+    private List<String> getManagerGroupNames(BrokeredIdentityContext context, GraphUser manager) {
         AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
         if (brokerToken == null) {
             logger.warn("Broker token is null, cannot retrieve manager groups");
@@ -141,13 +141,15 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
                 return List.of();
             }
 
-            List<String> groupIds = response.getValue().stream()
-                .map(TransitiveMemberOfGroup::getId)
+            List<String> groupNames = response.getValue().stream()
+                .map(TransitiveMemberOfGroup::getDisplayName)
                 .filter(Objects::nonNull)
-                .map(Object::toString)
+                .map(GraphApiMapperUtils::stripNonBmp)
+                .map(String::trim)
+                .filter(name -> !name.isEmpty())
                 .toList();
-            logger.infof("Graph API returned %d manager groups", groupIds.size());
-            return groupIds;
+            logger.infof("Graph API returned %d manager groups", groupNames.size());
+            return groupNames;
         } catch (Exception e) {
             logger.error("Failed to get manager groups", e);
             return List.of();

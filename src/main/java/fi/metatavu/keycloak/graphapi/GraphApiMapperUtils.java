@@ -57,6 +57,21 @@ final class GraphApiMapperUtils {
     }
 
     /**
+     * Strips non-BMP characters (e.g. emoji) that Keycloak storage cannot handle.
+     */
+    static String stripNonBmp(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        StringBuilder sanitized = new StringBuilder();
+        value.codePoints()
+            .filter(codePoint -> codePoint <= 0xFFFF)
+            .forEach(sanitized::appendCodePoint);
+        return sanitized.toString();
+    }
+
+    /**
      * Fetches a GraphUser from the context or by calling the fetcher.
      */
     static GraphUser fetchGraphUser(BrokeredIdentityContext context, Logger logger, String cacheKey, GraphUserFetcher fetcher) {

@@ -110,9 +110,9 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);
 
         if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
-            List<String> groupIds = getUserGroupIds(context);
-            logger.infof("Resolved user group ids: %s", groupIds);
-            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupIds);
+            List<String> groupNames = getUserGroupNames(context);
+            logger.infof("Resolved user group names: %s", groupNames);
+            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
             return;
         }
 
@@ -136,7 +136,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         return GraphApiMapperUtils.fetchGraphUser(context, logger, USER_AUTH_NOTE, graphApiClient::getUser);
     }
 
-    private List<String> getUserGroupIds(BrokeredIdentityContext context) {
+    private List<String> getUserGroupNames(BrokeredIdentityContext context) {
         AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
         if (brokerToken == null) {
             logger.warn("Broker token is null, cannot retrieve user groups");
@@ -151,13 +151,15 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
                 return List.of();
             }
 
-            List<String> groupIds = response.getValue().stream()
-                .map(TransitiveMemberOfGroup::getId)
+            List<String> groupNames = response.getValue().stream()
+                .map(TransitiveMemberOfGroup::getDisplayName)
                 .filter(Objects::nonNull)
-                .map(Object::toString)
+                .map(GraphApiMapperUtils::stripNonBmp)
+                .map(String::trim)
+                .filter(name -> !name.isEmpty())
                 .toList();
-            logger.infof("Graph API returned %d user groups", groupIds.size());
-            return groupIds;
+            logger.infof("Graph API returned %d user groups", groupNames.size());
+            return groupNames;
         } catch (Exception e) {
             logger.error("Failed to get user groups", e);
             return List.of();
