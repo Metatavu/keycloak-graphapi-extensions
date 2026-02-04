@@ -10,6 +10,8 @@ import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessTokenResponse;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -54,6 +56,17 @@ final class GraphApiMapperUtils {
         } else {
             user.setSingleAttribute(attributeName, value.toString());
         }
+    }
+
+    /**
+     * URL-encodes a value for storage to avoid utf8mb4 characters.
+     */
+    static String encodeForStorage(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     /**
