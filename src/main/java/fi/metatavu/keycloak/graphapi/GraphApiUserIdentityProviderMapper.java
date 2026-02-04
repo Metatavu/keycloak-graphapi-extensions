@@ -154,7 +154,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
             List<String> groupNames = response.getValue().stream()
                 .map(TransitiveMemberOfGroup::getDisplayName)
                 .filter(Objects::nonNull)
-                .map(GraphApiMapperUtils::stripNonBmp)
+                .map(GraphApiMapperUtils::encodeForStorage)
                 .map(String::trim)
                 .filter(name -> !name.isEmpty())
                 .toList();
