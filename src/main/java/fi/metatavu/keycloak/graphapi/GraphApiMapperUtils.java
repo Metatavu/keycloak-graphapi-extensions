@@ -10,6 +10,8 @@ import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessTokenResponse;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -57,18 +59,14 @@ final class GraphApiMapperUtils {
     }
 
     /**
-     * Strips non-BMP characters (e.g. emoji) that Keycloak storage cannot handle.
+     * URL-encodes a value for storage to avoid utf8mb4 characters.
      */
-    static String stripNonBmp(String value) {
+    static String encodeForStorage(String value) {
         if (value == null) {
             return null;
         }
 
-        StringBuilder sanitized = new StringBuilder();
-        value.codePoints()
-            .filter(codePoint -> codePoint <= 0xFFFF)
-            .forEach(sanitized::appendCodePoint);
-        return sanitized.toString();
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     /**

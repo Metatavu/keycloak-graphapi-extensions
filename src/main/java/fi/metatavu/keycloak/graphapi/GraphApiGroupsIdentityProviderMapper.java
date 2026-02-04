@@ -101,7 +101,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
         List<String> azureGroupNames = azureGroups.stream()
             .map(TransitiveMemberOfGroup::getDisplayName)
             .filter(Objects::nonNull)
-            .map(GraphApiMapperUtils::stripNonBmp)
+            .map(GraphApiMapperUtils::encodeForStorage)
             .map(String::trim)
             .filter(name -> !name.isEmpty())
             .toList();
