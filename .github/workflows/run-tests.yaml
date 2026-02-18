@@ -22,6 +22,8 @@ jobs:
       - name: Build project
         run: |
           ./gradlew clean build --info -x test
+      - name: Pre-pull Keycloak image
+        run: docker pull quay.io/keycloak/keycloak:26.1.2
       - name: Docker debug
         run: |
           echo "Runner: $RUNNER_OS"
