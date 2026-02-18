@@ -32,6 +32,8 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
     private static final String USER_GIVEN_NAME = "User Given Name";
     private static final String USER_BUSINESS_PHONES = "User Business Phones";
     private static final String USER_DISPLAY_NAME = "User Display Name";
+    private static final String USER_COMPANY_NAME = "User Company Name";
+    private static final String USER_DEPARTMENT = "User Department";
     private static final String USER_JOB_TITLE = "User Job Title";
     private static final String USER_GROUP_NAMES = "User Group Names";
     private static final String USER_MAIL = "User Mail";
@@ -47,6 +49,8 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         USER_GIVEN_NAME,
         USER_BUSINESS_PHONES,
         USER_DISPLAY_NAME,
+        USER_COMPANY_NAME,
+        USER_DEPARTMENT,
         USER_JOB_TITLE,
         USER_GROUP_NAMES,
         USER_MAIL,
@@ -61,6 +65,8 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         Map.entry(USER_GIVEN_NAME, GraphUser::getGivenName),
         Map.entry(USER_BUSINESS_PHONES, GraphUser::getBusinessPhones),
         Map.entry(USER_DISPLAY_NAME, GraphUser::getDisplayName),
+        Map.entry(USER_COMPANY_NAME, GraphUser::getCompanyName),
+        Map.entry(USER_DEPARTMENT, GraphUser::getDepartment),
         Map.entry(USER_JOB_TITLE, GraphUser::getJobTitle),
         Map.entry(USER_MAIL, GraphUser::getMail),
         Map.entry(USER_MOBILE_PHONE, GraphUser::getMobilePhone),

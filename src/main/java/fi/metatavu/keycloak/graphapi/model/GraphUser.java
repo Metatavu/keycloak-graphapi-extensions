@@ -19,6 +19,10 @@ public class GraphUser {
 
     private String displayName;
 
+    private String companyName;
+
+    private String department;
+
     private String givenName;
 
     private String jobTitle;
@@ -63,6 +67,22 @@ public class GraphUser {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public String getCompanyName() {
+        return companyName;
+    }
+
+    public void setCompanyName(String companyName) {
+        this.companyName = companyName;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
     }
 
     public String getGivenName() {
