@@ -47,6 +47,8 @@ jacoco {
 }
 
 tasks.named<Test>("test") {
+    dependsOn(tasks.named("jar"))
+
     val jacocoAgent = configurations["jacocoRuntime"].singleFile
 
     environment("BUILD_DIR", getLayout().buildDirectory.asFile.get().absolutePath)
