@@ -22,6 +22,17 @@ jobs:
       - name: Build project
         run: |
           ./gradlew clean build --info -x test
+      - name: Pre-pull Keycloak image
+        run: docker pull quay.io/keycloak/keycloak:26.1.2
+      - name: Docker debug
+        run: |
+          echo "Runner: $RUNNER_OS"
+          docker --version || true
+          docker version || true
+          docker info || true
+          ls -la /var/run/docker.sock || true
+          id || true
+          groups || true
       - name: Run tests
         run: ./gradlew test jacocoIntegrationReport --info
       - name: JaCoCo Code Coverage Report
