@@ -73,6 +73,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-given-name"), "Diego");
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-business-phones0"), "+1 205 555 0108");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-display-name"), "Diego Siciliani");
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/profile/positions")));
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-company-name"), "Contoso Ltd");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-department"), "Finance");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-job-title"), "CVP Finance");
@@ -118,6 +119,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, By.id("azure-ad-user-given-name"), "Megan");
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-business-phones0"), "+1 425 555 0102");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-display-name"), "Megan Bowen");
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/profile/positions")));
             waitAndAssertInputValue(driver, By.id("azure-ad-user-company-name"), "Contoso Ltd");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-department"), "Finance");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-job-title"), "Auditor");
