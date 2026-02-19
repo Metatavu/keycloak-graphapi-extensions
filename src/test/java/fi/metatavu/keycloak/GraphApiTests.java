@@ -73,6 +73,8 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-given-name"), "Diego");
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-business-phones0"), "+1 205 555 0108");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-display-name"), "Diego Siciliani");
+            waitAndAssertInputValue(driver, By.id("azure-ad-manager-company-name"), "Contoso Ltd");
+            waitAndAssertInputValue(driver, By.id("azure-ad-manager-department"), "Finance");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-job-title"), "CVP Finance");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-mail"), "diegos@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-mobile-phone"), "");
@@ -116,6 +118,8 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, By.id("azure-ad-user-given-name"), "Megan");
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-business-phones0"), "+1 425 555 0102");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-display-name"), "Megan Bowen");
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-company-name"), "Contoso Ltd");
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-department"), "Finance");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-job-title"), "Auditor");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mail"), "meganb@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mobile-phone"), "+1 425 555 0110");
