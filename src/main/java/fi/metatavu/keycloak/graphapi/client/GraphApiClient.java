@@ -2,6 +2,8 @@ package fi.metatavu.keycloak.graphapi.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsResponse;
+import fi.metatavu.keycloak.graphapi.model.GraphProfilePosition;
+import fi.metatavu.keycloak.graphapi.model.GraphProfilePositionsResponse;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.keycloak.representations.AccessTokenResponse;
 
@@ -48,7 +50,12 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public GraphUser getManager(AccessTokenResponse accessToken) throws IOException {
-        return getGraphApiResource(accessToken, "me/manager", GraphUser.class);
+        GraphUser manager = getGraphApiResource(accessToken, "me/manager", GraphUser.class);
+        if (manager == null || manager.getId() == null) {
+            return manager;
+        }
+
+        return enrichWithProfileCompany(accessToken, manager, String.format("users/%s/profile/positions?$top=1", manager.getId()));
     }
 
     /**
@@ -59,7 +66,62 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public GraphUser getUser(AccessTokenResponse accessToken) throws IOException {
-        return getGraphApiResource(accessToken, "me", GraphUser.class);
+        GraphUser user = getGraphApiResource(accessToken, "me", GraphUser.class);
+        if (user == null) {
+            return null;
+        }
+
+        return enrichWithProfileCompany(accessToken, user, "me/profile/positions?$top=1");
+    }
+
+    /**
+     * Populates companyName and department from profile positions when top-level fields are missing.
+     *
+     * @param accessToken access token
+     * @param user user to enrich
+     * @param profilePath profile positions endpoint path
+     * @return enriched user
+     */
+    private GraphUser enrichWithProfileCompany(AccessTokenResponse accessToken, GraphUser user, String profilePath) {
+        if (user.getCompanyName() != null && user.getDepartment() != null) {
+            return user;
+        }
+
+        GraphProfilePosition profilePosition = getLatestProfilePosition(accessToken, profilePath);
+        if (profilePosition == null || profilePosition.getDetail() == null || profilePosition.getDetail().getCompany() == null) {
+            return user;
+        }
+
+        if (user.getCompanyName() == null) {
+            user.setCompanyName(profilePosition.getDetail().getCompany().getDisplayName());
+        }
+
+        if (user.getDepartment() == null) {
+            user.setDepartment(profilePosition.getDetail().getCompany().getDepartment());
+        }
+
+        return user;
+    }
+
+    /**
+     * Returns first profile position from profile positions endpoint.
+     *
+     * @param accessToken access token
+     * @param profilePath profile positions endpoint path
+     * @return first profile position or null
+     */
+    private GraphProfilePosition getLatestProfilePosition(AccessTokenResponse accessToken, String profilePath) {
+        try {
+            GraphProfilePositionsResponse response = getGraphApiResource(accessToken, profilePath, GraphProfilePositionsResponse.class);
+            if (response == null || response.getValue() == null || response.getValue().isEmpty()) {
+                return null;
+            }
+
+            return response.getValue().getFirst();
+        } catch (IOException ignored) {
+            // Profile permissions vary per tenant, so fallback must be best-effort.
+            return null;
+        }
     }
 
     /**
