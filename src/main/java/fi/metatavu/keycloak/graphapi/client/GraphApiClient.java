@@ -93,7 +93,7 @@ public class GraphApiClient {
             user.getDepartment()
         );
 
-        if (hasText(user.getCompanyName()) && hasText(user.getDepartment())) {
+        if (user.getCompanyName() != null && user.getDepartment() != null) {
             logger.infof(
                 "Graph profile enrichment skipped [path=%s, userId=%s, reason=top-level-fields-present]",
                 profilePath,
@@ -122,11 +122,11 @@ public class GraphApiClient {
             profileDepartment
         );
 
-        if (!hasText(user.getCompanyName())) {
+        if (user.getCompanyName() == null) {
             user.setCompanyName(profileCompanyName);
         }
 
-        if (!hasText(user.getDepartment())) {
+        if (user.getDepartment() == null) {
             user.setDepartment(profileDepartment);
         }
 
@@ -139,10 +139,6 @@ public class GraphApiClient {
         );
 
         return user;
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
     }
 
     /**
