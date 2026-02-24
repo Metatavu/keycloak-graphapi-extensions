@@ -5,6 +5,7 @@ import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsRespon
 import fi.metatavu.keycloak.graphapi.model.GraphProfilePosition;
 import fi.metatavu.keycloak.graphapi.model.GraphProfilePositionsResponse;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
+import org.jboss.logging.Logger;
 import org.keycloak.representations.AccessTokenResponse;
 
 import java.io.IOException;
@@ -18,6 +19,7 @@ import java.net.http.HttpResponse;
  * Microsoft Graph API client
  */
 public class GraphApiClient {
+    private static final Logger logger = Logger.getLogger(GraphApiClient.class);
 
     /**
      * Returns logged user's membership of groups
@@ -83,22 +85,58 @@ public class GraphApiClient {
      * @return enriched user
      */
     private GraphUser enrichWithProfileCompany(AccessTokenResponse accessToken, GraphUser user, String profilePath) {
+        logger.infof(
+            "Graph profile enrichment start [path=%s, userId=%s, companyName='%s', department='%s']",
+            profilePath,
+            user.getId(),
+            user.getCompanyName(),
+            user.getDepartment()
+        );
+
         if (hasText(user.getCompanyName()) && hasText(user.getDepartment())) {
+            logger.infof(
+                "Graph profile enrichment skipped [path=%s, userId=%s, reason=top-level-fields-present]",
+                profilePath,
+                user.getId()
+            );
             return user;
         }
 
         GraphProfilePosition profilePosition = getLatestProfilePosition(accessToken, profilePath);
         if (profilePosition == null || profilePosition.getDetail() == null || profilePosition.getDetail().getCompany() == null) {
+            logger.infof(
+                "Graph profile enrichment no company data [path=%s, userId=%s]",
+                profilePath,
+                user.getId()
+            );
             return user;
         }
 
+        String profileCompanyName = profilePosition.getDetail().getCompany().getDisplayName();
+        String profileDepartment = profilePosition.getDetail().getCompany().getDepartment();
+        logger.infof(
+            "Graph profile company data [path=%s, userId=%s, profileCompanyName='%s', profileDepartment='%s']",
+            profilePath,
+            user.getId(),
+            profileCompanyName,
+            profileDepartment
+        );
+
         if (!hasText(user.getCompanyName())) {
-            user.setCompanyName(profilePosition.getDetail().getCompany().getDisplayName());
+            user.setCompanyName(profileCompanyName);
         }
 
         if (!hasText(user.getDepartment())) {
-            user.setDepartment(profilePosition.getDetail().getCompany().getDepartment());
+            user.setDepartment(profileDepartment);
         }
+
+        logger.infof(
+            "Graph profile enrichment result [path=%s, userId=%s, companyName='%s', department='%s']",
+            profilePath,
+            user.getId(),
+            user.getCompanyName(),
+            user.getDepartment()
+        );
 
         return user;
     }
@@ -118,12 +156,23 @@ public class GraphApiClient {
         try {
             GraphProfilePositionsResponse response = getGraphApiResource(accessToken, profilePath, GraphProfilePositionsResponse.class);
             if (response == null || response.getValue() == null || response.getValue().isEmpty()) {
+                logger.infof("Graph profile positions empty [path=%s]", profilePath);
                 return null;
             }
 
+            logger.infof(
+                "Graph profile positions fetched [path=%s, count=%d]",
+                profilePath,
+                response.getValue().size()
+            );
             return response.getValue().getFirst();
-        } catch (IOException ignored) {
+        } catch (IOException e) {
             // Profile permissions vary per tenant, so fallback must be best-effort.
+            logger.warnf(
+                "Graph profile positions fetch failed [path=%s, error=%s]",
+                profilePath,
+                e.getMessage()
+            );
             return null;
         }
     }
