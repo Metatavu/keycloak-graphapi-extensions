@@ -20,6 +20,21 @@ import java.net.http.HttpResponse;
  */
 public class GraphApiClient {
     private static final Logger logger = Logger.getLogger(GraphApiClient.class);
+    private static final String USER_SELECT_FIELDS = String.join(",",
+        "id",
+        "businessPhones",
+        "displayName",
+        "companyName",
+        "department",
+        "givenName",
+        "jobTitle",
+        "mail",
+        "mobilePhone",
+        "officeLocation",
+        "preferredLanguage",
+        "surname",
+        "userPrincipalName"
+    );
 
     /**
      * Returns logged user's membership of groups
@@ -52,7 +67,7 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public GraphUser getManager(AccessTokenResponse accessToken) throws IOException {
-        GraphUser manager = getGraphApiResource(accessToken, "me/manager", GraphUser.class);
+        GraphUser manager = getGraphApiResource(accessToken, String.format("me/manager?$select=%s", USER_SELECT_FIELDS), GraphUser.class);
         if (manager == null || manager.getId() == null) {
             return manager;
         }
@@ -68,7 +83,7 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public GraphUser getUser(AccessTokenResponse accessToken) throws IOException {
-        GraphUser user = getGraphApiResource(accessToken, "me", GraphUser.class);
+        GraphUser user = getGraphApiResource(accessToken, String.format("me?$select=%s", USER_SELECT_FIELDS), GraphUser.class);
         if (user == null) {
             return null;
         }
