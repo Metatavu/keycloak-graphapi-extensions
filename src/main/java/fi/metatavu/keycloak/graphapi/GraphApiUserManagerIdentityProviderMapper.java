@@ -108,7 +108,6 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
 
         if (MANAGER_GROUP_NAMES.equals(graphApiAttribute)) {
             List<String> groupNames = getManagerGroupNames(context, manager);
-            logger.infof("Resolved manager group names: %s", groupNames);
             GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
             return;
         }
@@ -143,7 +142,6 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
         try {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroupsForUser(brokerToken, manager.getId());
             if (response == null || response.getValue() == null) {
-                logger.info("Graph API manager groups response is empty");
                 return List.of();
             }
 
@@ -154,7 +152,6 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
                 .map(String::trim)
                 .filter(name -> !name.isEmpty())
                 .toList();
-            logger.infof("Graph API returned %d manager groups", groupNames.size());
             return groupNames;
         } catch (Exception e) {
             logger.error("Failed to get manager groups", e);

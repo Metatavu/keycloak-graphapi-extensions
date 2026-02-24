@@ -117,7 +117,6 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
 
         if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
             List<String> groupNames = getUserGroupNames(context);
-            logger.infof("Resolved user group names: %s", groupNames);
             GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
             return;
         }
@@ -153,7 +152,6 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         try {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(brokerToken);
             if (response == null || response.getValue() == null) {
-                logger.info("Graph API user groups response is empty");
                 return List.of();
             }
 
@@ -164,7 +162,6 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
                 .map(String::trim)
                 .filter(name -> !name.isEmpty())
                 .toList();
-            logger.infof("Graph API returned %d user groups", groupNames.size());
             return groupNames;
         } catch (Exception e) {
             logger.error("Failed to get user groups", e);
