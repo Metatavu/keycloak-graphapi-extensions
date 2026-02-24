@@ -83,7 +83,7 @@ public class GraphApiClient {
      * @return enriched user
      */
     private GraphUser enrichWithProfileCompany(AccessTokenResponse accessToken, GraphUser user, String profilePath) {
-        if (user.getCompanyName() != null && user.getDepartment() != null) {
+        if (hasText(user.getCompanyName()) && hasText(user.getDepartment())) {
             return user;
         }
 
@@ -92,15 +92,19 @@ public class GraphApiClient {
             return user;
         }
 
-        if (user.getCompanyName() == null) {
+        if (!hasText(user.getCompanyName())) {
             user.setCompanyName(profilePosition.getDetail().getCompany().getDisplayName());
         }
 
-        if (user.getDepartment() == null) {
+        if (!hasText(user.getDepartment())) {
             user.setDepartment(profilePosition.getDetail().getCompany().getDepartment());
         }
 
         return user;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**
