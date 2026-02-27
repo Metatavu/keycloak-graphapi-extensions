@@ -31,6 +31,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
     private static final String MANAGER_DISPLAY_NAME = "Manager Display Name";
     private static final String MANAGER_COMPANY_NAME = "Manager Company Name";
     private static final String MANAGER_DEPARTMENT = "Manager Department";
+    private static final String MANAGER_COST_CENTER = "Manager Cost Center";
     private static final String MANAGER_JOB_TITLE = "Manager Job Title";
     private static final String MANAGER_GROUP_NAMES = "Manager Group Names";
     private static final String MANAGER_MAIL = "Manager Mail";
@@ -48,6 +49,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
         MANAGER_DISPLAY_NAME,
         MANAGER_COMPANY_NAME,
         MANAGER_DEPARTMENT,
+        MANAGER_COST_CENTER,
         MANAGER_JOB_TITLE,
         MANAGER_GROUP_NAMES,
         MANAGER_MAIL,
@@ -64,6 +66,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
         Map.entry(MANAGER_DISPLAY_NAME, GraphUser::getDisplayName),
         Map.entry(MANAGER_COMPANY_NAME, GraphUser::getCompanyName),
         Map.entry(MANAGER_DEPARTMENT, GraphUser::getDepartment),
+        Map.entry(MANAGER_COST_CENTER, GraphUser::getCostCenter),
         Map.entry(MANAGER_JOB_TITLE, GraphUser::getJobTitle),
         Map.entry(MANAGER_MAIL, GraphUser::getMail),
         Map.entry(MANAGER_MOBILE_PHONE, GraphUser::getMobilePhone),

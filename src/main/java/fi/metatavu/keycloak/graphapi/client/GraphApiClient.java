@@ -26,6 +26,7 @@ public class GraphApiClient {
         "displayName",
         "companyName",
         "department",
+        "costCenter",
         "givenName",
         "jobTitle",
         "mail",
