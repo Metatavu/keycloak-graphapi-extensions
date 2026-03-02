@@ -93,7 +93,7 @@ public class GraphApiClient {
     }
 
     /**
-     * Populates companyName and department from profile positions when top-level fields are missing.
+     * Populates companyName, department, and costCenter from profile positions when top-level fields are missing.
      *
      * @param accessToken access token
      * @param user user to enrich
@@ -102,14 +102,15 @@ public class GraphApiClient {
      */
     private GraphUser enrichWithProfileCompany(AccessTokenResponse accessToken, GraphUser user, String profilePath) {
         logger.infof(
-            "Graph profile enrichment start [path=%s, userId=%s, companyName='%s', department='%s']",
+            "Graph profile enrichment start [path=%s, userId=%s, companyName='%s', department='%s', costCenter='%s']",
             profilePath,
             user.getId(),
             user.getCompanyName(),
-            user.getDepartment()
+            user.getDepartment(),
+            user.getCostCenter()
         );
 
-        if (user.getCompanyName() != null && user.getDepartment() != null) {
+        if (user.getCompanyName() != null && user.getDepartment() != null && user.getCostCenter() != null) {
             logger.infof(
                 "Graph profile enrichment skipped [path=%s, userId=%s, reason=top-level-fields-present]",
                 profilePath,
@@ -130,12 +131,14 @@ public class GraphApiClient {
 
         String profileCompanyName = profilePosition.getDetail().getCompany().getDisplayName();
         String profileDepartment = profilePosition.getDetail().getCompany().getDepartment();
+        String profileCostCenter = profilePosition.getDetail().getCompany().getCostCenter();
         logger.infof(
-            "Graph profile company data [path=%s, userId=%s, profileCompanyName='%s', profileDepartment='%s']",
+            "Graph profile company data [path=%s, userId=%s, profileCompanyName='%s', profileDepartment='%s', profileCostCenter='%s']",
             profilePath,
             user.getId(),
             profileCompanyName,
-            profileDepartment
+            profileDepartment,
+            profileCostCenter
         );
 
         if (user.getCompanyName() == null) {
@@ -146,12 +149,17 @@ public class GraphApiClient {
             user.setDepartment(profileDepartment);
         }
 
+        if (user.getCostCenter() == null) {
+            user.setCostCenter(profileCostCenter);
+        }
+
         logger.infof(
-            "Graph profile enrichment result [path=%s, userId=%s, companyName='%s', department='%s']",
+            "Graph profile enrichment result [path=%s, userId=%s, companyName='%s', department='%s', costCenter='%s']",
             profilePath,
             user.getId(),
             user.getCompanyName(),
-            user.getDepartment()
+            user.getDepartment(),
+            user.getCostCenter()
         );
 
         return user;
