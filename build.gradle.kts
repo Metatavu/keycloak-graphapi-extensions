@@ -27,10 +27,13 @@ val jacocoRuntime: Configuration by configurations.creating
 dependencies {
     implementation(enforcedPlatform("org.keycloak.bom:keycloak-bom-parent:$keycloakVersion"))
     compileOnly("org.keycloak:keycloak-services:$keycloakVersion")
+    testImplementation("org.keycloak:keycloak-services:$keycloakVersion")
 
     testImplementation("org.seleniumhq.selenium:selenium-remote-driver:$seleniumRemoteDriverVersion")
     testImplementation("org.seleniumhq.selenium:selenium-java:$seleniumVersion")
     testImplementation("org.junit.jupiter:junit-jupiter:$junitVersion")
+    testImplementation("org.mockito:mockito-core:5.12.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.12.0")
     testImplementation("org.testcontainers:testcontainers-junit-jupiter:$testContainersVersion")
     testImplementation("org.testcontainers:testcontainers:$testContainersVersion")
     testImplementation("io.rest-assured:rest-assured:$restAssuredVersion")

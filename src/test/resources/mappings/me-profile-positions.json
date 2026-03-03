@@ -5,6 +5,6 @@
   },
   "response": {
     "status": 200,
-    "body": "{\n  \"value\": [\n    {\n      \"id\": \"de6875cb-36cf-4461-993c-9bb1e550194d\",\n      \"isCurrent\": true,\n      \"detail\": {\n        \"jobTitle\": \"Auditor\",\n        \"company\": {\n          \"displayName\": \"Contoso Ltd\",\n          \"department\": \"Finance\"\n        }\n      }\n    }\n  ]\n}"
+    "body": "{\n  \"value\": [\n    {\n      \"id\": \"de6875cb-36cf-4461-993c-9bb1e550194d\",\n      \"isCurrent\": true,\n      \"detail\": {\n        \"jobTitle\": \"Auditor\",\n        \"company\": {\n          \"displayName\": \"Contoso Ltd\",\n          \"department\": \"Finance\",\n          \"costCenter\": \"Information Management\"\n        }\n      }\n    }\n  ]\n}"
   }
 }

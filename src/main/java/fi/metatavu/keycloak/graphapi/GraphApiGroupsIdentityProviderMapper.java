@@ -177,7 +177,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
      * @return user groups
      */
     private List<TransitiveMemberOfGroup> getAzureGroups(AccessTokenResponse accessToken) {
-        GraphApiClient graphApiClient = new GraphApiClient();
+        GraphApiClient graphApiClient = createGraphApiClient();
         try {
             return graphApiClient.getTransitiveMemberOfGroups(accessToken)
                 .getValue()
@@ -188,6 +188,15 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             logger.error("Failed to get manager", e);
             return null;
         }
+    }
+
+    /**
+     * Creates a Graph API client.
+     *
+     * @return Graph API client
+     */
+    protected GraphApiClient createGraphApiClient() {
+        return new GraphApiClient();
     }
 
     /**

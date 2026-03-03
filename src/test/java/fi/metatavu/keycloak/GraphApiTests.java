@@ -76,6 +76,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/profile/positions")));
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-company-name"), "Contoso Ltd");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-department"), "Finance");
+            waitAndAssertInputValue(driver, By.id("azure-ad-manager-cost-center"), "Information Management");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-job-title"), "CVP Finance");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-mail"), "diegos@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-mobile-phone"), "");
@@ -83,9 +84,15 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-preferred-language"), "en-US");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-surname"), "Siciliani");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-user-principal-name"), "diegos@m365x214355.onmicrosoft.com");
+            waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-group-names0"), "Management+Group");
+            waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-group-names1"), "Leadership+Team");
 
             // Verify that the manager endpoint was called just once
-            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/me/manager")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/transitiveMemberOf/microsoft.graph.group"))
+                .withQueryParam("$count", WireMock.equalTo("true"))
+                .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail"))
+                .withQueryParam("$filter", WireMock.equalTo("securityEnabled eq true and not(groupTypes/any(c:c eq 'Unified'))")));
 
             // Logout and login again
             logout(driver);
@@ -97,7 +104,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitButtonAndClick(driver, By.id("kc-login"));
 
             // Verify that the manager has been retrieved again
-            WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlEqualTo("/me/manager")));
+            WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
         } finally {
             driver.quit();
         }
@@ -122,6 +129,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/profile/positions")));
             waitAndAssertInputValue(driver, By.id("azure-ad-user-company-name"), "Contoso Ltd");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-department"), "Finance");
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-cost-center"), "Information Management");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-job-title"), "Auditor");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mail"), "meganb@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mobile-phone"), "+1 425 555 0110");
@@ -129,9 +137,15 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, By.id("azure-ad-user-preferred-language"), "en-US");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-surname"), "Bowen");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-user-principal-name"), "meganb@m365x214355.onmicrosoft.com");
+            waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-group-names0"), "Finance+Group");
+            waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-group-names1"), "Oulu+Team");
 
             // Verify that the user endpoint was called just once
-            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/me")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/transitiveMemberOf/microsoft.graph.group"))
+                .withQueryParam("$count", WireMock.equalTo("true"))
+                .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail"))
+                .withQueryParam("$filter", WireMock.equalTo("securityEnabled eq true and not(groupTypes/any(c:c eq 'Unified'))")));
 
             // Logout and login again
             logout(driver);
@@ -143,7 +157,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitButtonAndClick(driver, By.id("kc-login"));
 
             // Verify that the user has been retrieved again
-            WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlEqualTo("/me")));
+            WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
         } finally {
             driver.quit();
         }

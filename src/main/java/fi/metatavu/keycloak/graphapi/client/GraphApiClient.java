@@ -14,12 +14,19 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Map;
 
 /**
  * Microsoft Graph API client
  */
 public class GraphApiClient {
     private static final Logger logger = Logger.getLogger(GraphApiClient.class);
+    private static final String CONSISTENCY_LEVEL_HEADER = "ConsistencyLevel";
+    private static final String GROUPS_SELECT_FIELDS = "id,displayName,description,mail";
+    private static final String FILTERED_GROUPS_QUERY_SUFFIX = String.format(
+        "?$count=true&$select=%s&$filter=securityEnabled%%20eq%%20true%%20and%%20not(groupTypes/any(c:c%%20eq%%20'Unified'))",
+        GROUPS_SELECT_FIELDS
+    );
     private static final String USER_SELECT_FIELDS = String.join(",",
         "id",
         "businessPhones",
@@ -45,7 +52,12 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroups(AccessTokenResponse accessToken) throws IOException {
-        return getGraphApiResource(accessToken, "me/transitiveMemberOf/microsoft.graph.group?$select=id,displayName,description,mail", TransitiveMemberOfGroupsResponse.class);
+        return getGraphApiResource(
+            accessToken,
+            "me/transitiveMemberOf/microsoft.graph.group" + FILTERED_GROUPS_QUERY_SUFFIX,
+            TransitiveMemberOfGroupsResponse.class,
+            Map.of(CONSISTENCY_LEVEL_HEADER, "eventual")
+        );
     }
 
     /**
@@ -57,7 +69,12 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroupsForUser(AccessTokenResponse accessToken, String userId) throws IOException {
-        return getGraphApiResource(accessToken, String.format("users/%s/transitiveMemberOf/microsoft.graph.group?$select=id,displayName,description,mail", userId), TransitiveMemberOfGroupsResponse.class);
+        return getGraphApiResource(
+            accessToken,
+            String.format("users/%s/transitiveMemberOf/microsoft.graph.group%s", userId, FILTERED_GROUPS_QUERY_SUFFIX),
+            TransitiveMemberOfGroupsResponse.class,
+            Map.of(CONSISTENCY_LEVEL_HEADER, "eventual")
+        );
     }
 
     /**
@@ -110,7 +127,7 @@ public class GraphApiClient {
             user.getCostCenter()
         );
 
-        if (user.getCompanyName() != null && user.getDepartment() != null && user.getCostCenter() != null) {
+        if (hasValue(user.getCompanyName()) && hasValue(user.getDepartment()) && hasValue(user.getCostCenter())) {
             logger.infof(
                 "Graph profile enrichment skipped [path=%s, userId=%s, reason=top-level-fields-present]",
                 profilePath,
@@ -141,15 +158,15 @@ public class GraphApiClient {
             profileCostCenter
         );
 
-        if (user.getCompanyName() == null) {
+        if (!hasValue(user.getCompanyName()) && hasValue(profileCompanyName)) {
             user.setCompanyName(profileCompanyName);
         }
 
-        if (user.getDepartment() == null) {
+        if (!hasValue(user.getDepartment()) && hasValue(profileDepartment)) {
             user.setDepartment(profileDepartment);
         }
 
-        if (user.getCostCenter() == null) {
+        if (!hasValue(user.getCostCenter()) && hasValue(profileCostCenter)) {
             user.setCostCenter(profileCostCenter);
         }
 
@@ -163,6 +180,16 @@ public class GraphApiClient {
         );
 
         return user;
+    }
+
+    /**
+     * Returns whether a text value is non-null and contains non-whitespace characters.
+     *
+     * @param value text value
+     * @return true when value has non-whitespace content
+     */
+    private boolean hasValue(String value) {
+        return value != null && !value.isBlank();
     }
 
     /**
@@ -207,11 +234,28 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     private <T> T getGraphApiResource(AccessTokenResponse accessToken, String path, Class<T> clazz) throws IOException {
+        return getGraphApiResource(accessToken, path, clazz, Map.of());
+    }
+
+    /**
+     * Fetches a resource from the Microsoft Graph API with optional request headers.
+     *
+     * @param accessToken access token
+     * @param path API path
+     * @param clazz target class
+     * @param headers extra HTTP headers
+     * @return resource
+     * @throws IOException thrown when request fails
+     */
+    private <T> T getGraphApiResource(AccessTokenResponse accessToken, String path, Class<T> clazz, Map<String, String> headers) throws IOException {
         HttpClient client = HttpClient.newHttpClient();
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(String.format("%s/%s", getGraphApiUrl(), path)))
-                .header("Authorization", "Bearer " + accessToken.getToken())
-                .build();
+                .header("Authorization", "Bearer " + accessToken.getToken());
+
+        headers.forEach(requestBuilder::header);
+
+        HttpRequest request = requestBuilder.build();
 
         try {
             HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
