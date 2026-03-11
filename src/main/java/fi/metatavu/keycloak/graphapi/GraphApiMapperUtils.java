@@ -113,11 +113,57 @@ final class GraphApiMapperUtils {
     static void applyAttributeMapping(GraphUser graphUser, String sourceAttribute, String keycloakAttribute, UserModel userModel, Map<String, Function<GraphUser, Object>> mapping, Logger logger) {
         Function<GraphUser, Object> extractor = mapping.get(sourceAttribute);
         if (extractor == null) {
+            extractor = resolveExtractorByAlias(sourceAttribute, mapping, logger);
+        }
+
+        if (extractor == null) {
             logger.warnf("Unsupported Graph API user attribute: %s", sourceAttribute);
             return;
         }
 
         updateUserAttribute(userModel, keycloakAttribute, extractor.apply(graphUser));
+    }
+
+    /**
+     * Resolves extractor by normalized alias when mapper configuration uses legacy labels
+     * or raw Graph field names (for example "costCenter" instead of "User Cost Center").
+     */
+    private static Function<GraphUser, Object> resolveExtractorByAlias(String sourceAttribute, Map<String, Function<GraphUser, Object>> mapping, Logger logger) {
+        if (sourceAttribute == null || sourceAttribute.isBlank()) {
+            return null;
+        }
+
+        String normalizedSource = normalizeAttributeName(sourceAttribute);
+        List<Map.Entry<String, Function<GraphUser, Object>>> matches = mapping.entrySet()
+            .stream()
+            .filter(entry -> {
+                String normalizedKey = normalizeAttributeName(entry.getKey());
+                return normalizedKey.equals(normalizedSource) || normalizedKey.endsWith(normalizedSource);
+            })
+            .toList();
+
+        if (matches.size() == 1) {
+            Map.Entry<String, Function<GraphUser, Object>> match = matches.getFirst();
+            logger.infof("Resolved Graph API user attribute alias '%s' -> '%s'", sourceAttribute, match.getKey());
+            return match.getValue();
+        }
+
+        return null;
+    }
+
+    /**
+     * Normalizes a mapping key for case/spacing/punctuation-insensitive comparisons.
+     */
+    private static String normalizeAttributeName(String attributeName) {
+        StringBuilder normalized = new StringBuilder();
+        for (int i = 0; i < attributeName.length(); i++) {
+            char character = attributeName.charAt(i);
+            if (Character.isLetterOrDigit(character)) {
+                normalized.append(Character.toLowerCase(character));
+            }
+        }
+
+        return normalized.toString();
     }
 
     /**
