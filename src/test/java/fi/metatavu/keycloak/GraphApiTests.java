@@ -3,7 +3,6 @@ package fi.metatavu.keycloak;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -16,12 +15,23 @@ import org.testcontainers.containers.BrowserWebDriverContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import org.wiremock.integrations.testcontainers.WireMockContainer;
 
 @Testcontainers
 public class GraphApiTests extends AbstractSeleniumTest {
 
     private static final Network network = Network.newNetwork();
+
+    private static DockerImageName getSeleniumImage() {
+        String architecture = System.getProperty("os.arch", "").toLowerCase();
+        if (architecture.contains("aarch64") || architecture.contains("arm64")) {
+            return DockerImageName.parse("selenium/standalone-chromium:latest")
+                .asCompatibleSubstituteFor("selenium/standalone-chrome");
+        }
+
+        return DockerImageName.parse("selenium/standalone-chrome:4.20.0");
+    }
 
     @Container
     private static final KeycloakContainer keycloakContainer = KeycloakTestUtils.createKeycloakContainer(network);
@@ -34,12 +44,23 @@ public class GraphApiTests extends AbstractSeleniumTest {
             .withFileSystemBind("./src/test/resources/mappings", "/home/wiremock/mappings", BindMode.READ_ONLY)
             .withLogConsumer(outputFrame -> System.out.printf("WIREMOCK: %s", outputFrame.getUtf8String()));
 
+    private static ChromeOptions createChromeOptions() {
+        return new ChromeOptions()
+            .addArguments(
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--window-size=1920,1080"
+            );
+    }
+
     @Container
     @SuppressWarnings("resource")
-    private static final BrowserWebDriverContainer<?> webDriverContainer = new BrowserWebDriverContainer<>()
+    private static final BrowserWebDriverContainer<?> webDriverContainer = new BrowserWebDriverContainer<>(getSeleniumImage())
             .withNetwork(network)
             .withNetworkAliases("chrome")
-            .withCapabilities(new ChromeOptions())
+            .withSharedMemorySize(2L * 1024 * 1024 * 1024)
+            .withCapabilities(createChromeOptions())
             .withRecordingMode(BrowserWebDriverContainer.VncRecordingMode.SKIP, null);
 
     @BeforeAll
@@ -59,7 +80,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testGetManagerAttributes () {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             driver.get(getAccountUrl());
 
@@ -91,7 +112,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/transitiveMemberOf/microsoft.graph.group"))
                 .withQueryParam("$count", WireMock.equalTo("true"))
-                .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail"))
+                .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail,groupTypes,resourceProvisioningOptions"))
                 .withQueryParam("$filter", WireMock.equalTo("securityEnabled eq true and not(groupTypes/any(c:c eq 'Unified'))")));
 
             // Logout and login again
@@ -112,7 +133,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testGetUserAttributes () {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             driver.get(getAccountUrl());
 
@@ -144,7 +165,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/transitiveMemberOf/microsoft.graph.group"))
                 .withQueryParam("$count", WireMock.equalTo("true"))
-                .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail"))
+                .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail,groupTypes,resourceProvisioningOptions"))
                 .withQueryParam("$filter", WireMock.equalTo("securityEnabled eq true and not(groupTypes/any(c:c eq 'Unified'))")));
 
             // Logout and login again

@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.graphapi.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
 import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsResponse;
 import fi.metatavu.keycloak.graphapi.model.GraphProfilePosition;
 import fi.metatavu.keycloak.graphapi.model.GraphProfilePositionsResponse;
@@ -14,7 +15,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Microsoft Graph API client
@@ -22,7 +25,7 @@ import java.util.Map;
 public class GraphApiClient {
     private static final Logger logger = Logger.getLogger(GraphApiClient.class);
     private static final String CONSISTENCY_LEVEL_HEADER = "ConsistencyLevel";
-    private static final String GROUPS_SELECT_FIELDS = "id,displayName,description,mail";
+    private static final String GROUPS_SELECT_FIELDS = "id,displayName,description,mail,groupTypes,resourceProvisioningOptions";
     private static final String FILTERED_GROUPS_QUERY_SUFFIX = String.format(
         "?$count=true&$select=%s&$filter=securityEnabled%%20eq%%20true%%20and%%20not(groupTypes/any(c:c%%20eq%%20'Unified'))",
         GROUPS_SELECT_FIELDS
@@ -52,12 +55,14 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroups(AccessTokenResponse accessToken) throws IOException {
-        return getGraphApiResource(
+        TransitiveMemberOfGroupsResponse response = getGraphApiResource(
             accessToken,
             "me/transitiveMemberOf/microsoft.graph.group" + FILTERED_GROUPS_QUERY_SUFFIX,
             TransitiveMemberOfGroupsResponse.class,
             Map.of(CONSISTENCY_LEVEL_HEADER, "eventual")
         );
+
+        return excludeUnifiedAndTeamsGroups(response, "me/transitiveMemberOf");
     }
 
     /**
@@ -69,12 +74,47 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroupsForUser(AccessTokenResponse accessToken, String userId) throws IOException {
-        return getGraphApiResource(
+        TransitiveMemberOfGroupsResponse response = getGraphApiResource(
             accessToken,
             String.format("users/%s/transitiveMemberOf/microsoft.graph.group%s", userId, FILTERED_GROUPS_QUERY_SUFFIX),
             TransitiveMemberOfGroupsResponse.class,
             Map.of(CONSISTENCY_LEVEL_HEADER, "eventual")
         );
+
+        return excludeUnifiedAndTeamsGroups(response, String.format("users/%s/transitiveMemberOf", userId));
+    }
+
+    /**
+     * Applies local fallback filtering for Unified/Teams groups in case server-side filtering
+     * behaves differently between Graph endpoints.
+     */
+    private TransitiveMemberOfGroupsResponse excludeUnifiedAndTeamsGroups(TransitiveMemberOfGroupsResponse response, String path) {
+        if (response == null || response.getValue() == null) {
+            return response;
+        }
+
+        List<TransitiveMemberOfGroup> filteredGroups = response.getValue()
+            .stream()
+            .filter(Objects::nonNull)
+            .filter(this::isNotUnifiedOrTeamGroup)
+            .toList();
+
+        int excludedCount = response.getValue().size() - filteredGroups.size();
+        if (excludedCount > 0) {
+            logger.infof("Graph groups filtered locally [path=%s, excluded=%d]", path, excludedCount);
+        }
+
+        response.setValue(filteredGroups);
+        return response;
+    }
+
+    private boolean isNotUnifiedOrTeamGroup(TransitiveMemberOfGroup group) {
+        return !containsIgnoreCase(group.getGroupTypes(), "Unified")
+            && !containsIgnoreCase(group.getResourceProvisioningOptions(), "Team");
+    }
+
+    private boolean containsIgnoreCase(List<String> values, String expectedValue) {
+        return values != null && values.stream().anyMatch(value -> value != null && expectedValue.equalsIgnoreCase(value));
     }
 
     /**

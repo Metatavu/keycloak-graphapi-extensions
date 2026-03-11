@@ -185,7 +185,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
                 .filter(group -> group.getDisplayName() != null)
                 .toList();
         } catch (Exception e) {
-            logger.error("Failed to get manager", e);
+            logger.error("Failed to get user groups", e);
             return null;
         }
     }

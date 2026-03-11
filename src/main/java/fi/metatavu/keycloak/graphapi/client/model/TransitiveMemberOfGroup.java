@@ -2,6 +2,7 @@ package fi.metatavu.keycloak.graphapi.client.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -16,6 +17,10 @@ public class TransitiveMemberOfGroup {
     private String displayName;
 
     private String mail;
+
+    private List<String> groupTypes;
+
+    private List<String> resourceProvisioningOptions;
 
     public void setId(UUID id) {
         this.id = id;
@@ -39,5 +44,21 @@ public class TransitiveMemberOfGroup {
 
     public void setMail(String mail) {
         this.mail = mail;
+    }
+
+    public List<String> getGroupTypes() {
+        return groupTypes;
+    }
+
+    public void setGroupTypes(List<String> groupTypes) {
+        this.groupTypes = groupTypes;
+    }
+
+    public List<String> getResourceProvisioningOptions() {
+        return resourceProvisioningOptions;
+    }
+
+    public void setResourceProvisioningOptions(List<String> resourceProvisioningOptions) {
+        this.resourceProvisioningOptions = resourceProvisioningOptions;
     }
 }
