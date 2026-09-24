@@ -220,7 +220,8 @@ public class GraphApiTests extends AbstractSeleniumTest {
             loginWithAzure(driver);
             waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
 
-            // Default mock returns Finance Group, Oulu Team and non-managed All Staff group
+            // Default mock returns Finance Group, Oulu Team and non-managed All Staff group. It also returns
+            // Microsoft 365 group Sales Group, which must be filtered out even though it is mapped to sales
             assertEquals(Set.of("/finance", "/parent/child"), getManagedGroupPaths());
 
             // Non-managed Keycloak groups must not be touched by the mapper
@@ -252,7 +253,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             loginWithAzure(driver);
             waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
 
-            // Group without display name is skipped and names are URL-encoded for storage
+            // Group without display name, Microsoft 365 group and Teams group are skipped and names are URL-encoded for storage
             assertEquals(Set.of("Finance+Group", "Oulu+Team", "All+Staff"), Set.copyOf(getTestUserAttribute("azure-ad-user-group-names")));
 
             // Groups mapper and group names mapper share the same request during the login
