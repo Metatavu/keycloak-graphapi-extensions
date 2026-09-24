@@ -8,7 +8,7 @@ services:
     command: --verbose --global-response-templating
   keycloak:
     hostname: keycloak
-    image: quay.io/keycloak/keycloak:26.1.2
+    image: quay.io/keycloak/keycloak:26.3.5
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=test
       - KC_BOOTSTRAP_ADMIN_PASSWORD=test

@@ -61,7 +61,10 @@ public class AbstractSeleniumTest {
     /**
      * Waits for an input to have a specific value.
      *
-     * If the element is not clickable within 60 seconds, the method will throw an exception.
+     * If the element is not visible within 60 seconds, the method will throw an exception.
+     *
+     * Visibility is used instead of clickability, because Keycloak account console renders
+     * attributes that are read-only for the user as disabled inputs.
      *
      * @param driver web driver
      * @param by element locator
@@ -69,7 +72,7 @@ public class AbstractSeleniumTest {
      */
     protected void waitAndAssertInputValue(WebDriver driver, By by, String text) {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
-        WebElement element = wait.until(ExpectedConditions.elementToBeClickable(by));
+        WebElement element = wait.until(ExpectedConditions.visibilityOfElementLocated(by));
         assertEquals(text, element.getAttribute("value"));
     }
 
