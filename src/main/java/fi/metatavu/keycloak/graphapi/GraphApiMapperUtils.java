@@ -2,12 +2,16 @@ package fi.metatavu.keycloak.graphapi;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
+import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
+import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsResponse;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessTokenResponse;
+import org.keycloak.sessions.AuthenticationSessionModel;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -16,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -24,6 +29,9 @@ import java.util.function.Function;
 final class GraphApiMapperUtils {
 
     static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
+
+    private static final String UNAVAILABLE_NOTE = "unavailable";
+    private static final String USER_GROUP_NAMES_NOTE = "graph-api-user-group-names";
 
     private GraphApiMapperUtils() {
     }
@@ -72,39 +80,97 @@ final class GraphApiMapperUtils {
     /**
      * Fetches a GraphUser from the context or by calling the fetcher.
      */
-    static GraphUser fetchGraphUser(BrokeredIdentityContext context, Logger logger, String cacheKey, GraphUserFetcher fetcher) {
-        String cachedUser = context.getAuthenticationSession().getAuthNote(cacheKey);
-        if (cachedUser != null) {
+    static GraphUser fetchGraphUser(BrokeredIdentityContext context, Logger logger, String cacheKey, GraphResourceFetcher<GraphUser> fetcher) {
+        return fetchCached(context, logger, cacheKey, GraphUser.class, fetcher);
+    }
+
+    /**
+     * Fetches names of the logged user's groups from the context or from the Graph API.
+     *
+     * @return group names or null if groups could not be retrieved
+     */
+    static List<String> fetchUserGroupNames(BrokeredIdentityContext context, Logger logger) {
+        GraphApiClient graphApiClient = new GraphApiClient();
+        String[] groupNames = fetchCached(context, logger, USER_GROUP_NAMES_NOTE, String[].class, accessToken -> {
+            TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(accessToken);
+            if (response == null || response.getValue() == null) {
+                return null;
+            }
+
+            return toGroupNames(response.getValue()).toArray(String[]::new);
+        });
+
+        return groupNames == null ? null : List.of(groupNames);
+    }
+
+    /**
+     * Converts Graph API groups into group names suitable for storage. Groups without a display name are skipped.
+     */
+    static List<String> toGroupNames(List<TransitiveMemberOfGroup> groups) {
+        return groups.stream()
+            .map(TransitiveMemberOfGroup::getDisplayName)
+            .filter(Objects::nonNull)
+            .map(GraphApiMapperUtils::encodeForStorage)
+            .map(String::trim)
+            .filter(name -> !name.isEmpty())
+            .toList();
+    }
+
+    /**
+     * Fetches a Graph API resource from the context or by calling the fetcher.
+     *
+     * Result is cached in the authentication session, so that the Graph API is called only once per login
+     * regardless of how many mappers use the same resource. Unavailable resource (request failure or not found) is
+     * cached as well to prevent every mapper from repeating a request that already failed during the same login.
+     */
+    private static <T> T fetchCached(BrokeredIdentityContext context, Logger logger, String cacheKey, Class<T> type, GraphResourceFetcher<T> fetcher) {
+        AuthenticationSessionModel authenticationSession = context.getAuthenticationSession();
+        String cachedValue = authenticationSession.getAuthNote(cacheKey);
+        if (UNAVAILABLE_NOTE.equals(cachedValue)) {
+            return null;
+        }
+
+        if (cachedValue != null) {
             try {
-                return new ObjectMapper().readValue(cachedUser, GraphUser.class);
+                return new ObjectMapper().readValue(cachedValue, type);
             } catch (JsonProcessingException e) {
-                logger.error("Failed to parse cached user", e);
+                logger.errorf(e, "Failed to parse cached Graph API resource %s", cacheKey);
             }
         }
 
+        T value = requestGraphResource(context, logger, cacheKey, fetcher);
+        if (value == null) {
+            authenticationSession.setAuthNote(cacheKey, UNAVAILABLE_NOTE);
+            return null;
+        }
+
+        try {
+            authenticationSession.setAuthNote(cacheKey, new ObjectMapper().writeValueAsString(value));
+        } catch (JsonProcessingException e) {
+            logger.errorf(e, "Failed to cache Graph API resource %s", cacheKey);
+        }
+
+        return value;
+    }
+
+    /**
+     * Requests a Graph API resource using the fetcher.
+     *
+     * @return resource or null if request failed or resource was not found
+     */
+    private static <T> T requestGraphResource(BrokeredIdentityContext context, Logger logger, String resourceName, GraphResourceFetcher<T> fetcher) {
         AccessTokenResponse brokerToken = parseBrokerToken(context, logger);
         if (brokerToken == null) {
-            logger.warn("Broker token is null, cannot retrieve user");
+            logger.warnf("Broker token is null, cannot retrieve Graph API resource %s", resourceName);
             return null;
         }
 
-        GraphUser graphUser;
         try {
-            graphUser = fetcher.fetch(brokerToken);
+            return fetcher.fetch(brokerToken);
         } catch (IOException e) {
-            logger.error("Failed to get user", e);
+            logger.errorf(e, "Failed to get Graph API resource %s", resourceName);
             return null;
         }
-
-        if (graphUser != null) {
-            try {
-                context.getAuthenticationSession().setAuthNote(cacheKey, new ObjectMapper().writeValueAsString(graphUser));
-            } catch (JsonProcessingException e) {
-                logger.error("Failed to cache user", e);
-            }
-        }
-
-        return graphUser;
     }
 
     /**
@@ -144,7 +210,7 @@ final class GraphApiMapperUtils {
     }
 
     @FunctionalInterface
-    interface GraphUserFetcher {
-        GraphUser fetch(AccessTokenResponse accessToken) throws IOException;
+    interface GraphResourceFetcher<T> {
+        T fetch(AccessTokenResponse accessToken) throws IOException;
     }
 }

@@ -2,6 +2,20 @@
 
 This repository provides custom Keycloak extensions that enable integration with the Microsoft Graph API.
 
+Supported Keycloak version: 26.3.x
+
+## Configuration
+
+The extension is configured with the following optional environment variables in Keycloak:
+
+| Variable | Default | Description |
+|---|---|---|
+| `GRAPH_API_URL` | `https://graph.microsoft.com/v1.0` | Microsoft Graph API base URL |
+| `GRAPH_API_CONNECT_TIMEOUT_SECONDS` | `5` | Timeout for opening a connection to Graph API |
+| `GRAPH_API_REQUEST_TIMEOUT_SECONDS` | `15` | Timeout for a single Graph API request |
+
+If Graph API request fails or times out, login continues and the existing user data is kept.
+
 ## License
 
 [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)

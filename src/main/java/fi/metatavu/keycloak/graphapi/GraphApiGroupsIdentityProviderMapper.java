@@ -1,14 +1,9 @@
 package fi.metatavu.keycloak.graphapi;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
-import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
 import org.jboss.logging.Logger;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.models.*;
 import org.keycloak.provider.ProviderConfigProperty;
-import org.keycloak.representations.AccessTokenResponse;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -20,7 +15,6 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
 
     private static final Logger logger = Logger.getLogger(GraphApiGroupsIdentityProviderMapper.class);
     private static final String PROVIDER_ID = "graph-api-groups-identity-provider-mapper";
-    private static final Set<IdentityProviderSyncMode> IDENTITY_PROVIDER_SYNC_MODES = new HashSet<>(Arrays.asList(IdentityProviderSyncMode.values()));
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final String CONFIG_GRAPH_API_GROUP_MAPPING = "graph-api-group-mapping";
 
@@ -35,11 +29,6 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
 
     public GraphApiGroupsIdentityProviderMapper() {
         super(PROVIDER_ID, "Graph API Groups", "Graph API Groups Identity Provider Mapper", configProperties);
-    }
-
-    @Override
-    public boolean supportsSyncMode(IdentityProviderSyncMode syncMode) {
-        return IDENTITY_PROVIDER_SYNC_MODES.contains(syncMode);
     }
 
     @Override
@@ -59,9 +48,9 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
      * @param context brokered identity context
      */
     private void updateGroups(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
-        AccessTokenResponse brokerToken = getBrokerToken(context);
-        if (brokerToken == null) {
-            logger.warn("Could not retrieve broker token from context, skipping group GraphAPI group mapping");
+        List<String> azureGroupNames = GraphApiMapperUtils.fetchUserGroupNames(context, logger);
+        if (azureGroupNames == null) {
+            logger.debug("Could not retrieve user groups from GraphAPI, skipping group GraphAPI group mapping");
             return;
         }
 
@@ -92,34 +81,22 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
 
         ArrayList<GroupModel> joinUserGroups = new ArrayList<>();
 
-        List<TransitiveMemberOfGroup> azureGroups = getAzureGroups(brokerToken);
-        if (azureGroups == null) {
-            logger.warn("Could not retrieve user groups from GraphAPI, skipping group GraphAPI group mapping");
-            return;
+        if (logger.isDebugEnabled()) {
+            logger.debugf("User's Azure groups: %s", String.join(", ", azureGroupNames));
         }
 
-        List<String> azureGroupNames = azureGroups.stream()
-            .map(TransitiveMemberOfGroup::getDisplayName)
-            .filter(Objects::nonNull)
-            .map(GraphApiMapperUtils::encodeForStorage)
-            .map(String::trim)
-            .filter(name -> !name.isEmpty())
-            .toList();
-
-        logger.info("User's Azure groups: " + String.join(", ", azureGroupNames));
-
         for (String azureGroupName : azureGroupNames) {
-            logger.info("Processing Azure group: " + azureGroupName);
+            logger.debugf("Processing Azure group: %s", azureGroupName);
 
             if (managedAzureGroupNames.contains(azureGroupName)) {
                 List<String> keycloakGroups = groupMappings.get(azureGroupName);
                 for (String keycloakGroup : keycloakGroups) {
                     if (previousGroupNames.contains(keycloakGroup)) {
-                        logger.info("Not removing user from group " + keycloakGroup);
+                        logger.debugf("Not removing user from group %s", keycloakGroup);
                         leaveUserGroups.removeIf(group -> getGroupPath(groupTree, group.getId()).equals(keycloakGroup));
                     } else {
                         if (managedKeycloakGroups.containsKey(keycloakGroup)) {
-                            logger.info("Adding user to join group " + keycloakGroup);
+                            logger.debugf("Adding user to join group %s", keycloakGroup);
                             joinUserGroups.add(managedKeycloakGroups.get(keycloakGroup));
                         } else {
                             logger.warn("Could not find managed Keycloak group " + keycloakGroup);
@@ -127,7 +104,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
                     }
                 }
             } else {
-                logger.info("Skipping non-managed Azure group " + azureGroupName);
+                logger.debugf("Skipping non-managed Azure group %s", azureGroupName);
             }
         }
 
@@ -147,46 +124,6 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             String authNoteId = "USER_LEAVING_GROUP_" + groupId;
             session.getContext().getAuthenticationSession().setAuthNote(authNoteId, user.getId());
             user.leaveGroup(group);
-        }
-    }
-
-    /**
-     * Returns parsed broker token from context
-     *
-     * @param context brokered identity context
-     * @return parsed broker token or null if token is not present
-     */
-    private AccessTokenResponse getBrokerToken(BrokeredIdentityContext context) {
-        String token = context.getToken();
-        if (token == null) {
-            return null;
-        }
-
-        try {
-            return new ObjectMapper().readValue(token, AccessTokenResponse.class);
-        } catch (JsonProcessingException e) {
-            logger.error("Failed to parse token", e);
-            return null;
-        }
-    }
-
-    /**
-     * Returns user groups from GraphAPI
-     *
-     * @param accessToken access token
-     * @return user groups
-     */
-    private List<TransitiveMemberOfGroup> getAzureGroups(AccessTokenResponse accessToken) {
-        GraphApiClient graphApiClient = new GraphApiClient();
-        try {
-            return graphApiClient.getTransitiveMemberOfGroups(accessToken)
-                .getValue()
-                .stream()
-                .filter(group -> group.getDisplayName() != null)
-                .toList();
-        } catch (Exception e) {
-            logger.error("Failed to get manager", e);
-            return null;
         }
     }
 

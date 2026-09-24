@@ -9,17 +9,30 @@ import org.jboss.logging.Logger;
 import org.keycloak.representations.AccessTokenResponse;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
+import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Microsoft Graph API client
  */
 public class GraphApiClient {
     private static final Logger logger = Logger.getLogger(GraphApiClient.class);
+
+    private static final Duration CONNECT_TIMEOUT = getTimeout("GRAPH_API_CONNECT_TIMEOUT_SECONDS", Duration.ofSeconds(5));
+    private static final Duration REQUEST_TIMEOUT = getTimeout("GRAPH_API_REQUEST_TIMEOUT_SECONDS", Duration.ofSeconds(15));
+
+    // HttpClient is thread-safe and shared to reuse connections between requests
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(CONNECT_TIMEOUT)
+            .build();
 
     /**
      * Returns logged user's membership of groups
@@ -180,23 +193,38 @@ public class GraphApiClient {
     /**
      * Fetches a resource from the Microsoft Graph API.
      *
+     * Request timeout covers the whole exchange including reading the response body, because
+     * HttpRequest timeout alone covers only receiving the response headers.
+     *
      * @param accessToken access token
      * @param path API path
      * @param clazz target class
      * @return resource
-     * @throws IOException thrown when request fails
+     * @throws IOException thrown when request fails or times out
      */
     private <T> T getGraphApiResource(AccessTokenResponse accessToken, String path, Class<T> clazz) throws IOException {
-        HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(String.format("%s/%s", getGraphApiUrl(), path)))
                 .header("Authorization", "Bearer " + accessToken.getToken())
+                .timeout(REQUEST_TIMEOUT)
                 .build();
 
+        CompletableFuture<HttpResponse<byte[]>> responseFuture = HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
         try {
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<byte[]> response = responseFuture.get(REQUEST_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             return handleResponse(response, clazz);
+        } catch (TimeoutException e) {
+            responseFuture.cancel(true);
+            throw new HttpTimeoutException(String.format("Request to %s timed out", path));
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof IOException ioException) {
+                throw ioException;
+            }
+
+            throw new IOException(e.getCause());
         } catch (InterruptedException e) {
+            responseFuture.cancel(true);
+            Thread.currentThread().interrupt();
             throw new IOException(e);
         }
     }
@@ -209,7 +237,7 @@ public class GraphApiClient {
      * @return resource
      * @throws IOException thrown when response handling fails
      */
-    private <T> T handleResponse(HttpResponse<InputStream> response, Class<T> clazz) throws IOException {
+    private <T> T handleResponse(HttpResponse<byte[]> response, Class<T> clazz) throws IOException {
         int statusCode = response.statusCode();
 
         if (statusCode == 200) {
@@ -224,16 +252,42 @@ public class GraphApiClient {
     /**
      * Deserializes JSON to object
      *
-     * @param json JSON input stream
+     * @param json JSON bytes
      * @param clazz target class
      * @return deserialized object
      * @param <T> target class type
      * @throws IOException thrown when deserialization fails
      */
     @SuppressWarnings("SameParameterValue")
-    private <T> T deserialize(InputStream json, Class<T> clazz) throws IOException {
+    private <T> T deserialize(byte[] json, Class<T> clazz) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         return objectMapper.readValue(json, clazz);
+    }
+
+    /**
+     * Returns timeout from environment variable or default timeout if variable is not set or is invalid
+     *
+     * @param variableName environment variable name containing timeout in seconds
+     * @param defaultTimeout default timeout
+     * @return timeout
+     */
+    private static Duration getTimeout(String variableName, Duration defaultTimeout) {
+        String value = System.getenv(variableName);
+        if (value == null || value.isBlank()) {
+            return defaultTimeout;
+        }
+
+        try {
+            long seconds = Long.parseLong(value.trim());
+            if (seconds > 0) {
+                return Duration.ofSeconds(seconds);
+            }
+        } catch (NumberFormatException e) {
+            // Invalid value is reported below
+        }
+
+        logger.warnf("Invalid value '%s' in %s, using default %d seconds", value, variableName, defaultTimeout.toSeconds());
+        return defaultTimeout;
     }
 
     /**
