@@ -298,6 +298,35 @@ public class GraphApiTests extends AbstractSeleniumTest {
     }
 
     @Test
+    void testGraphApiStalledResponseBody() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        try {
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            Map<String, List<String>> attributesBefore = getTestUser().getAttributes();
+
+            // Graph API sends response headers immediately but the body slower than the request timeout (2 seconds in tests)
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/me"))
+                .atPriority(1)
+                .willReturn(WireMock.okJson("{\"id\":\"c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110\",\"givenName\":\"Stalled\"}").withChunkedDribbleDelay(50, 10000)));
+
+            logout(driver);
+            WireMock.resetAllRequests();
+            long loginStarted = System.currentTimeMillis();
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            // Request timeout must also cover reading the response body
+            assertTrue(System.currentTimeMillis() - loginStarted < 10000, "Login should not wait for the stalled Graph API response body");
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
+            assertEquals(attributesBefore, getTestUser().getAttributes());
+        } finally {
+            driver.quit();
+        }
+    }
+
+    @Test
     void testUserWithoutManager() {
         RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
         try {
