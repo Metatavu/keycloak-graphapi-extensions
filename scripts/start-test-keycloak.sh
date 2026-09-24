@@ -8,6 +8,6 @@ docker run -p 8080:8080 \
   -v ./src/test/resources/kc-test.json:/opt/keycloak/data/import/kc-test.json \
   -v ./src/test/resources/kc-azure.json:/opt/keycloak/data/import/kc-azure.json \
   -v $GRAPHAPI_EXTENSION_JAR:/opt/keycloak/providers/graphapi-extensions.jar \
-  quay.io/keycloak/keycloak:26.1.2 start-dev --import-realm
+  quay.io/keycloak/keycloak:26.3.5 start-dev --import-realm
 
 
