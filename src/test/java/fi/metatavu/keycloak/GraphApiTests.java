@@ -3,7 +3,10 @@ package fi.metatavu.keycloak;
 import dasniko.testcontainers.keycloak.KeycloakContainer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
-import org.jetbrains.annotations.NotNull;
+import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.resource.UserResource;
+import org.keycloak.representations.idm.GroupRepresentation;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -17,6 +20,15 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.wiremock.integrations.testcontainers.WireMockContainer;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Testcontainers
 public class GraphApiTests extends AbstractSeleniumTest {
@@ -42,6 +54,13 @@ public class GraphApiTests extends AbstractSeleniumTest {
             .withCapabilities(new ChromeOptions())
             .withRecordingMode(BrowserWebDriverContainer.VncRecordingMode.SKIP, null);
 
+    private static final String TEST_REALM = "test";
+    private static final String TEST_USERNAME = "test1";
+    private static final String TRANSITIVE_MEMBER_OF_PATH = "/me/transitiveMemberOf/microsoft.graph.group";
+    private static final Set<String> MANAGED_GROUP_PATHS = Set.of("/finance", "/sales", "/parent/child");
+
+    private static Keycloak adminClient;
+
     @BeforeAll
     static void setUp() {
         WireMock.configureFor(wiremockContainer.getMappedPort(8080));
@@ -54,6 +73,10 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @AfterAll
     static void afterAll() {
+        if (adminClient != null) {
+            adminClient.close();
+        }
+
         KeycloakTestUtils.stopKeycloakContainer(keycloakContainer);
     }
 
@@ -147,6 +170,185 @@ public class GraphApiTests extends AbstractSeleniumTest {
         } finally {
             driver.quit();
         }
+    }
+
+    @Test
+    void testGroups() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        try {
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            // Default mock returns azure-finance, azure-auditors and non-managed All Staff group
+            assertEquals(Set.of("/finance", "/parent/child"), getManagedGroupPaths());
+
+            // Non-managed Keycloak groups must not be touched by the mapper
+            UserResource user = getTestUserResource();
+            user.joinGroup(getGroupByPath("/parent").getId());
+
+            // User has left azure-auditors and joined azure-sales in Azure
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+                .atPriority(1)
+                .willReturn(WireMock.okJson(getTransitiveMemberOfJson("azure-finance", "azure-sales"))));
+
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            assertEquals(Set.of("/finance", "/sales"), getManagedGroupPaths());
+            assertEquals(Set.of("/finance", "/sales", "/parent"), getUserGroupPaths());
+
+            user.leaveGroup(getGroupByPath("/parent").getId());
+        } finally {
+            driver.quit();
+        }
+    }
+
+    @Test
+    void testUserGroupNames() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        try {
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            // Group without display name is skipped and names are URL-encoded for storage
+            assertEquals(Set.of("azure-finance", "azure-auditors", "All+Staff"), Set.copyOf(getTestUserAttribute("azure-ad-user-group-names")));
+
+            // User has been removed from all groups in Azure
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+                .atPriority(1)
+                .willReturn(WireMock.okJson(getTransitiveMemberOfJson())));
+
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            assertEquals(List.of(), getTestUserAttribute("azure-ad-user-group-names"));
+        } finally {
+            driver.quit();
+        }
+    }
+
+    @Test
+    void testGraphApiErrors() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        try {
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            Set<String> groupsBefore = getUserGroupPaths();
+            Map<String, List<String>> attributesBefore = getTestUser().getAttributes();
+
+            for (String path : List.of("/me", "/me/manager", TRANSITIVE_MEMBER_OF_PATH)) {
+                WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(path))
+                    .atPriority(1)
+                    .willReturn(WireMock.serverError()));
+            }
+
+            // Login must still succeed when Graph API fails
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            WireMock.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
+            WireMock.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
+            WireMock.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH)));
+
+            // Existing data must be preserved when Graph API fails
+            assertEquals(groupsBefore, getUserGroupPaths());
+            assertEquals(attributesBefore, getTestUser().getAttributes());
+        } finally {
+            driver.quit();
+        }
+    }
+
+    /**
+     * Returns paths of groups managed by the groups mapper that the test user belongs to
+     *
+     * @return managed group paths
+     */
+    private Set<String> getManagedGroupPaths() {
+        return getUserGroupPaths().stream()
+            .filter(MANAGED_GROUP_PATHS::contains)
+            .collect(Collectors.toSet());
+    }
+
+    /**
+     * Returns paths of all groups the test user belongs to
+     *
+     * @return group paths
+     */
+    private Set<String> getUserGroupPaths() {
+        return getTestUserResource().groups().stream()
+            .map(GroupRepresentation::getPath)
+            .collect(Collectors.toSet());
+    }
+
+    /**
+     * Returns test realm group by path
+     *
+     * @param path group path
+     * @return group
+     */
+    private GroupRepresentation getGroupByPath(String path) {
+        return getAdminClient().realm(TEST_REALM).getGroupByPath(path);
+    }
+
+    /**
+     * Returns attribute values of the test user
+     *
+     * @param name attribute name
+     * @return attribute values
+     */
+    private List<String> getTestUserAttribute(String name) {
+        return getTestUser().getAttributes().getOrDefault(name, List.of());
+    }
+
+    /**
+     * Returns the brokered test user
+     *
+     * @return test user
+     */
+    private UserRepresentation getTestUser() {
+        return getTestUserResource().toRepresentation();
+    }
+
+    /**
+     * Returns resource for the brokered test user
+     *
+     * @return test user resource
+     */
+    private UserResource getTestUserResource() {
+        List<UserRepresentation> users = getAdminClient().realm(TEST_REALM).users().searchByUsername(TEST_USERNAME, true);
+        assertEquals(1, users.size());
+        return getAdminClient().realm(TEST_REALM).users().get(users.getFirst().getId());
+    }
+
+    /**
+     * Returns admin client for the Keycloak container
+     *
+     * @return admin client
+     */
+    private Keycloak getAdminClient() {
+        if (adminClient == null) {
+            adminClient = keycloakContainer.getKeycloakAdminClient();
+        }
+
+        return adminClient;
+    }
+
+    /**
+     * Returns Graph API transitive member of response JSON with given group display names
+     *
+     * @param displayNames group display names
+     * @return response JSON
+     */
+    private String getTransitiveMemberOfJson(String... displayNames) {
+        String groups = Arrays.stream(displayNames)
+            .map(displayName -> String.format("{\"id\":\"%s\",\"displayName\":\"%s\"}", UUID.randomUUID(), displayName))
+            .collect(Collectors.joining(","));
+
+        return String.format("{\"value\":[%s]}", groups);
     }
 
 }

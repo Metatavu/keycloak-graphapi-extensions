@@ -87,6 +87,20 @@ public class AbstractSeleniumTest {
     }
 
     /**
+     * Logs user in to the account console via simulated Azure AD realm
+     *
+     * @param driver web driver
+     */
+    protected void loginWithAzure(RemoteWebDriver driver) {
+        driver.get(getAccountUrl());
+        waitButtonAndClick(driver, By.id("social-oidc"));
+        waitText(driver, By.id("kc-header-wrapper"), "REALM THAT SIMULATES AZURE AD");
+        waitInputAndType(driver, By.id("username"), "test1");
+        waitInputAndType(driver, By.id("password"), "test");
+        waitButtonAndClick(driver, By.id("kc-login"));
+    }
+
+    /**
      * Logs user out
      *
      * @param driver web driver
