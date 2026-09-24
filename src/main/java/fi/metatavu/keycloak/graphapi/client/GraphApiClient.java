@@ -41,7 +41,7 @@ public class GraphApiClient {
         "displayName",
         "companyName",
         "department",
-        "costCenter",
+        "employeeOrgData",
         "givenName",
         "jobTitle",
         "mail",
@@ -143,6 +143,8 @@ public class GraphApiClient {
             return manager;
         }
 
+        applyEmployeeOrgData(manager);
+
         return enrichWithProfileCompany(accessToken, manager, String.format("users/%s/profile/positions?$top=1", manager.getId()));
     }
 
@@ -159,7 +161,21 @@ public class GraphApiClient {
             return null;
         }
 
+        applyEmployeeOrgData(user);
+
         return enrichWithProfileCompany(accessToken, user, "me/profile/positions?$top=1");
+    }
+
+    /**
+     * Populates costCenter from employee organization data. Graph API user does not have a top-level costCenter
+     * property, it is available only in employeeOrgData.
+     *
+     * @param user user to populate
+     */
+    private void applyEmployeeOrgData(GraphUser user) {
+        if (!hasValue(user.getCostCenter()) && user.getEmployeeOrgData() != null && hasValue(user.getEmployeeOrgData().getCostCenter())) {
+            user.setCostCenter(user.getEmployeeOrgData().getCostCenter());
+        }
     }
 
     /**

@@ -80,6 +80,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
     private static final String TEST_REALM = "test";
     private static final String TEST_USERNAME = "test1";
     private static final String TRANSITIVE_MEMBER_OF_PATH = "/me/transitiveMemberOf/microsoft.graph.group";
+    private static final String USER_SELECT_FIELDS = "id,businessPhones,displayName,companyName,department,employeeOrgData,givenName,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName";
     private static final Set<String> MANAGED_GROUP_PATHS = Set.of("/finance", "/sales", "/parent/child");
 
     private static Keycloak adminClient;
@@ -133,8 +134,9 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-group-names0"), "Management+Group");
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-group-names1"), "Leadership+Team");
 
-            // Verify that the manager endpoint was called just once
-            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
+            // Verify that the manager endpoint was called just once and only with properties that exist in Graph API user
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager"))
+                .withQueryParam("$select", WireMock.equalTo(USER_SELECT_FIELDS)));
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/transitiveMemberOf/microsoft.graph.group"))
                 .withQueryParam("$count", WireMock.equalTo("true"))
                 .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail,groupTypes,resourceProvisioningOptions"))
@@ -175,7 +177,8 @@ public class GraphApiTests extends AbstractSeleniumTest {
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/profile/positions")));
             waitAndAssertInputValue(driver, By.id("azure-ad-user-company-name"), "Contoso Ltd");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-department"), "Finance");
-            waitAndAssertInputValue(driver, By.id("azure-ad-user-cost-center"), "Information Management");
+            // User cost center comes from employeeOrgData, manager cost center from profile positions fallback
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-cost-center"), "CC-1001");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-job-title"), "Auditor");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mail"), "meganb@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mobile-phone"), "+1 425 555 0110");
@@ -186,8 +189,9 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-group-names0"), "Finance+Group");
             waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-group-names1"), "Oulu+Team");
 
-            // Verify that the user endpoint was called just once
-            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
+            // Verify that the user endpoint was called just once and only with properties that exist in Graph API user
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me"))
+                .withQueryParam("$select", WireMock.equalTo(USER_SELECT_FIELDS)));
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/transitiveMemberOf/microsoft.graph.group"))
                 .withQueryParam("$count", WireMock.equalTo("true"))
                 .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail,groupTypes,resourceProvisioningOptions"))
