@@ -1,8 +1,6 @@
 package fi.metatavu.keycloak.graphapi;
 
 import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
-import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
-import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsResponse;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
@@ -11,11 +9,9 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
-import org.keycloak.representations.AccessTokenResponse;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 
 /**
@@ -116,7 +112,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);
 
         if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
-            List<String> groupNames = getUserGroupNames(context);
+            List<String> groupNames = GraphApiMapperUtils.fetchUserGroupNames(context, logger);
             if (groupNames == null) {
                 logger.warn("Could not retrieve user groups from Graph API, skipping user group names update");
                 return;
@@ -144,39 +140,5 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
     private GraphUser getUser(BrokeredIdentityContext context) {
         GraphApiClient graphApiClient = new GraphApiClient();
         return GraphApiMapperUtils.fetchGraphUser(context, logger, USER_AUTH_NOTE, graphApiClient::getUser);
-    }
-
-    /**
-     * Returns names of user's groups
-     *
-     * @param context brokered identity context
-     * @return names of user's groups or null if groups could not be retrieved
-     */
-    private List<String> getUserGroupNames(BrokeredIdentityContext context) {
-        AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
-        if (brokerToken == null) {
-            logger.warn("Broker token is null, cannot retrieve user groups");
-            return null;
-        }
-
-        GraphApiClient graphApiClient = new GraphApiClient();
-        try {
-            TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(brokerToken);
-            if (response == null || response.getValue() == null) {
-                return null;
-            }
-
-            List<String> groupNames = response.getValue().stream()
-                .map(TransitiveMemberOfGroup::getDisplayName)
-                .filter(Objects::nonNull)
-                .map(GraphApiMapperUtils::encodeForStorage)
-                .map(String::trim)
-                .filter(name -> !name.isEmpty())
-                .toList();
-            return groupNames;
-        } catch (Exception e) {
-            logger.error("Failed to get user groups", e);
-            return null;
-        }
     }
 }

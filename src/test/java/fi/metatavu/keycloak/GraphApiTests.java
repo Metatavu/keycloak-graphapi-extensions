@@ -215,6 +215,9 @@ public class GraphApiTests extends AbstractSeleniumTest {
             // Group without display name is skipped and names are URL-encoded for storage
             assertEquals(Set.of("azure-finance", "azure-auditors", "All+Staff"), Set.copyOf(getTestUserAttribute("azure-ad-user-group-names")));
 
+            // Groups mapper and group names mapper share the same request during the login
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH)));
+
             // User has been removed from all groups in Azure
             WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
                 .atPriority(1)
@@ -255,7 +258,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             // Failed requests must not be repeated by every mapper during the same login
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
-            WireMock.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH)));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH)));
 
             // Existing data must be preserved when Graph API fails
             assertEquals(groupsBefore, getUserGroupPaths());
