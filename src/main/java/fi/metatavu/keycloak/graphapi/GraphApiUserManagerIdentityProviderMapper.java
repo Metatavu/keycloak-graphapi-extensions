@@ -1,7 +1,6 @@
 package fi.metatavu.keycloak.graphapi;
 
 import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
-import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
 import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsResponse;
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
@@ -15,7 +14,6 @@ import org.keycloak.representations.AccessTokenResponse;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 
 public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiIdentityProviderMapper {
@@ -105,7 +103,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
 
         GraphUser manager = getManager(context);
         if (manager == null) {
-            logger.warn("Could not retrieve manager from Graph API, skipping manager update");
+            logger.debug("Could not retrieve manager from Graph API, skipping manager update");
             return;
         }
 
@@ -148,14 +146,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
                 return List.of();
             }
 
-            List<String> groupNames = response.getValue().stream()
-                .map(TransitiveMemberOfGroup::getDisplayName)
-                .filter(Objects::nonNull)
-                .map(GraphApiMapperUtils::encodeForStorage)
-                .map(String::trim)
-                .filter(name -> !name.isEmpty())
-                .toList();
-            return groupNames;
+            return GraphApiMapperUtils.toGroupNames(response.getValue());
         } catch (Exception e) {
             logger.error("Failed to get manager groups", e);
             return List.of();

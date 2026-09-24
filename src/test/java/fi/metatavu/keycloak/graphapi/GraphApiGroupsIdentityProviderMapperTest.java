@@ -57,6 +57,7 @@ class GraphApiGroupsIdentityProviderMapperTest {
 
         BrokeredIdentityContext brokeredIdentityContext = mock(BrokeredIdentityContext.class);
         when(brokeredIdentityContext.getToken()).thenReturn("{\"token\":\"broker-token\"}");
+        when(brokeredIdentityContext.getAuthenticationSession()).thenReturn(authSession);
 
         TransitiveMemberOfGroupsResponse groupsResponse = new TransitiveMemberOfGroupsResponse();
         groupsResponse.setValue(List.of(groupResponse("Finance Group")));
@@ -81,6 +82,7 @@ class GraphApiGroupsIdentityProviderMapperTest {
         IdentityProviderMapperModel mapperModel = mock(IdentityProviderMapperModel.class);
         BrokeredIdentityContext brokeredIdentityContext = mock(BrokeredIdentityContext.class);
         when(brokeredIdentityContext.getToken()).thenReturn(null);
+        when(brokeredIdentityContext.getAuthenticationSession()).thenReturn(mock(AuthenticationSessionModel.class));
 
         mapper.importNewUser(session, realm, user, mapperModel, brokeredIdentityContext);
 

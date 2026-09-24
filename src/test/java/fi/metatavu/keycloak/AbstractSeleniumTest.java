@@ -61,7 +61,10 @@ public class AbstractSeleniumTest {
     /**
      * Waits for an input to have a specific value.
      *
-     * If the element is not clickable within 60 seconds, the method will throw an exception.
+     * If the element is not visible within 60 seconds, the method will throw an exception.
+     *
+     * Visibility is used instead of clickability, because Keycloak account console renders
+     * attributes that are read-only for the user as disabled inputs.
      *
      * @param driver web driver
      * @param by element locator
@@ -69,7 +72,7 @@ public class AbstractSeleniumTest {
      */
     protected void waitAndAssertInputValue(WebDriver driver, By by, String text) {
         WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(60));
-        WebElement element = wait.until(ExpectedConditions.elementToBeClickable(by));
+        WebElement element = wait.until(ExpectedConditions.visibilityOfElementLocated(by));
         assertEquals(text, element.getAttribute("value"));
     }
 
@@ -81,6 +84,20 @@ public class AbstractSeleniumTest {
      */
     protected By byDataTestId(String dataTestId) {
         return By.cssSelector("[data-testid='" + dataTestId + "']");
+    }
+
+    /**
+     * Logs user in to the account console via simulated Azure AD realm
+     *
+     * @param driver web driver
+     */
+    protected void loginWithAzure(RemoteWebDriver driver) {
+        driver.get(getAccountUrl());
+        waitButtonAndClick(driver, By.id("social-oidc"));
+        waitText(driver, By.id("kc-header-wrapper"), "REALM THAT SIMULATES AZURE AD");
+        waitInputAndType(driver, By.id("username"), "test1");
+        waitInputAndType(driver, By.id("password"), "test");
+        waitButtonAndClick(driver, By.id("kc-login"));
     }
 
     /**

@@ -405,7 +405,46 @@
       ]
     }
   },
-  "groups": [],
+  "groups": [
+    {
+      "id": "3f0c7c5e-6a55-4b0e-9c47-0a3d1f5e2b01",
+      "name": "finance",
+      "path": "/finance",
+      "subGroups": [],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
+    },
+    {
+      "id": "3f0c7c5e-6a55-4b0e-9c47-0a3d1f5e2b02",
+      "name": "sales",
+      "path": "/sales",
+      "subGroups": [],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
+    },
+    {
+      "id": "3f0c7c5e-6a55-4b0e-9c47-0a3d1f5e2b03",
+      "name": "parent",
+      "path": "/parent",
+      "subGroups": [
+        {
+          "id": "3f0c7c5e-6a55-4b0e-9c47-0a3d1f5e2b04",
+          "name": "child",
+          "path": "/parent/child",
+          "parentId": "3f0c7c5e-6a55-4b0e-9c47-0a3d1f5e2b03",
+          "subGroups": [],
+          "attributes": {},
+          "realmRoles": [],
+          "clientRoles": {}
+        }
+      ],
+      "attributes": {},
+      "realmRoles": [],
+      "clientRoles": {}
+    }
+  ],
   "defaultRole": {
     "id": "7a80eb51-91b1-4ab4-b60e-368f87116f61",
     "name": "default-roles-test",
@@ -1371,6 +1410,16 @@
     }
   ],
   "identityProviderMappers": [
+    {
+      "id": "0b6d2a3e-8f1c-4c55-9d7a-2e4f6a8b1c01",
+      "name": "groups",
+      "identityProviderAlias": "oidc",
+      "identityProviderMapper": "graph-api-groups-identity-provider-mapper",
+      "config": {
+        "syncMode": "INHERIT",
+        "graph-api-group-mapping": "[{\"key\":\"Finance+Group\",\"value\":\"finance\"},{\"key\":\"Sales+Group\",\"value\":\"sales\"},{\"key\":\"Oulu+Team\",\"value\":\"parent/child\"}]"
+      }
+    },
     {
       "id": "514457e7-fdd4-4311-a3a4-f95cd8f30a3b",
       "name": "manager mail",

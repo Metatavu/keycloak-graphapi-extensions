@@ -25,6 +25,7 @@ public class KeycloakTestUtils {
             .withFileSystemBind("./build/libs/", "/opt/keycloak/providers", BindMode.READ_ONLY)
             .withRealmImportFiles("kc-azure.json", "kc-test.json")
             .withEnv("GRAPH_API_URL", "http://wiremock:8080")
+            .withEnv("GRAPH_API_REQUEST_TIMEOUT_SECONDS", "2")
             .withEnv("JAVA_OPTS_APPEND", "-javaagent:/jacoco-agent/org.jacoco.agent-runtime.jar=destfile=/tmp/jacoco.exec")
             .withCopyFileToContainer(
                     MountableFile.forHostPath(KeycloakTestUtils.getJacocoAgentPath()),
