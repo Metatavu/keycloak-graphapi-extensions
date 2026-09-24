@@ -40,7 +40,8 @@ public class GraphApiTests extends AbstractSeleniumTest {
     private static DockerImageName getSeleniumImage() {
         String architecture = System.getProperty("os.arch", "").toLowerCase();
         if (architecture.contains("aarch64") || architecture.contains("arm64")) {
-            return DockerImageName.parse("selenium/standalone-chromium:latest")
+            // Chrome image is not available for ARM, pinned for reproducible test runs
+            return DockerImageName.parse("selenium/standalone-chromium:4.49.0-20260909")
                 .asCompatibleSubstituteFor("selenium/standalone-chrome");
         }
 
