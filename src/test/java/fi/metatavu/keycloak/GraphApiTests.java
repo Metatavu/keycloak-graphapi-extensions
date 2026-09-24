@@ -151,6 +151,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitInputAndType(driver, By.id("username"), "test1");
             waitInputAndType(driver, By.id("password"), "test");
             waitButtonAndClick(driver, By.id("kc-login"));
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
 
             // Verify that the manager has been retrieved again
             WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
@@ -206,6 +207,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitInputAndType(driver, By.id("username"), "test1");
             waitInputAndType(driver, By.id("password"), "test");
             waitButtonAndClick(driver, By.id("kc-login"));
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
 
             // Verify that the user has been retrieved again
             WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
