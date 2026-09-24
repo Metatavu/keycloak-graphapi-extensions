@@ -1,0 +1,10 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/me/transitiveMemberOf/microsoft.graph.group.*"
+  },
+  "response": {
+    "status": 200,
+    "body": "{\n  \"value\": [\n    {\n      \"id\": \"42f8f6a3-ea24-4d4f-a9b6-9284cf32ce15\",\n      \"displayName\": \"Finance Group\",\n      \"mail\": \"finance-group@example.com\"\n    },\n    {\n      \"id\": \"0e8acc8b-58fd-4f66-96f0-8c06191390a8\",\n      \"displayName\": \"Oulu Team\",\n      \"mail\": \"oulu-team@example.com\"\n    },\n    {\n      \"id\": \"7a1f3c2e-0d4b-4e8a-9c1f-5b2d3e4f6a03\",\n      \"displayName\": \"All Staff\",\n      \"mail\": null\n    },\n    {\n      \"id\": \"7a1f3c2e-0d4b-4e8a-9c1f-5b2d3e4f6a04\",\n      \"displayName\": null,\n      \"mail\": null\n    },\n    {\n      \"id\": \"7a1f3c2e-0d4b-4e8a-9c1f-5b2d3e4f6a05\",\n      \"displayName\": \"Sales Group\",\n      \"mail\": \"sales-group@example.com\",\n      \"groupTypes\": [\n        \"Unified\"\n      ],\n      \"resourceProvisioningOptions\": []\n    },\n    {\n      \"id\": \"7a1f3c2e-0d4b-4e8a-9c1f-5b2d3e4f6a06\",\n      \"displayName\": \"Project Team\",\n      \"mail\": \"project-team@example.com\",\n      \"groupTypes\": [],\n      \"resourceProvisioningOptions\": [\n        \"Team\"\n      ]\n    }\n  ]\n}"
+  }
+}

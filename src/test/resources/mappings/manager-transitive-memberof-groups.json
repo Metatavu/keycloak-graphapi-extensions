@@ -1,0 +1,10 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/transitiveMemberOf/microsoft.graph.group.*"
+  },
+  "response": {
+    "status": 200,
+    "body": "{\n  \"value\": [\n    {\n      \"id\": \"f2d72a69-0694-4a7a-95e1-d7f776de3890\",\n      \"displayName\": \"Management Group\",\n      \"mail\": \"management-group@example.com\"\n    },\n    {\n      \"id\": \"eb5ad8a1-7046-4cb8-be1f-ec56a9df0fa5\",\n      \"displayName\": \"Leadership Team\",\n      \"mail\": \"leadership-team@example.com\"\n    }\n  ]\n}"
+  }
+}

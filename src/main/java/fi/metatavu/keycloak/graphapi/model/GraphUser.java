@@ -23,6 +23,10 @@ public class GraphUser {
 
     private String department;
 
+    private String costCenter;
+
+    private GraphEmployeeOrgData employeeOrgData;
+
     private String givenName;
 
     private String jobTitle;
@@ -83,6 +87,22 @@ public class GraphUser {
 
     public void setDepartment(String department) {
         this.department = department;
+    }
+
+    public String getCostCenter() {
+        return costCenter;
+    }
+
+    public void setCostCenter(String costCenter) {
+        this.costCenter = costCenter;
+    }
+
+    public GraphEmployeeOrgData getEmployeeOrgData() {
+        return employeeOrgData;
+    }
+
+    public void setEmployeeOrgData(GraphEmployeeOrgData employeeOrgData) {
+        this.employeeOrgData = employeeOrgData;
     }
 
     public String getGivenName() {
