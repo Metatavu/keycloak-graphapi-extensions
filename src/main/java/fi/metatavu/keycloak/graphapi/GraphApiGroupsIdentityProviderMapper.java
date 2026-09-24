@@ -1,5 +1,6 @@
 package fi.metatavu.keycloak.graphapi;
 
+import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
 import org.jboss.logging.Logger;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.models.*;
@@ -48,7 +49,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
      * @param context brokered identity context
      */
     private void updateGroups(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
-        List<String> azureGroupNames = GraphApiMapperUtils.fetchUserGroupNames(context, logger);
+        List<String> azureGroupNames = GraphApiMapperUtils.fetchUserGroupNames(context, createGraphApiClient(), logger);
         if (azureGroupNames == null) {
             logger.debug("Could not retrieve user groups from GraphAPI, skipping group GraphAPI group mapping");
             return;
@@ -125,6 +126,15 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             session.getContext().getAuthenticationSession().setAuthNote(authNoteId, user.getId());
             user.leaveGroup(group);
         }
+    }
+
+    /**
+     * Creates a Graph API client.
+     *
+     * @return Graph API client
+     */
+    protected GraphApiClient createGraphApiClient() {
+        return new GraphApiClient();
     }
 
     /**

@@ -19,6 +19,7 @@ import org.testcontainers.containers.BrowserWebDriverContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 import org.wiremock.integrations.testcontainers.WireMockContainer;
 
 import java.util.Arrays;
@@ -36,6 +37,16 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     private static final Network network = Network.newNetwork();
 
+    private static DockerImageName getSeleniumImage() {
+        String architecture = System.getProperty("os.arch", "").toLowerCase();
+        if (architecture.contains("aarch64") || architecture.contains("arm64")) {
+            return DockerImageName.parse("selenium/standalone-chromium:latest")
+                .asCompatibleSubstituteFor("selenium/standalone-chrome");
+        }
+
+        return DockerImageName.parse("selenium/standalone-chrome:4.20.0");
+    }
+
     @Container
     private static final KeycloakContainer keycloakContainer = KeycloakTestUtils.createKeycloakContainer(network);
 
@@ -47,12 +58,23 @@ public class GraphApiTests extends AbstractSeleniumTest {
             .withFileSystemBind("./src/test/resources/mappings", "/home/wiremock/mappings", BindMode.READ_ONLY)
             .withLogConsumer(outputFrame -> System.out.printf("WIREMOCK: %s", outputFrame.getUtf8String()));
 
+    private static ChromeOptions createChromeOptions() {
+        return new ChromeOptions()
+            .addArguments(
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--window-size=1920,1080"
+            );
+    }
+
     @Container
     @SuppressWarnings("resource")
-    private static final BrowserWebDriverContainer<?> webDriverContainer = new BrowserWebDriverContainer<>()
+    private static final BrowserWebDriverContainer<?> webDriverContainer = new BrowserWebDriverContainer<>(getSeleniumImage())
             .withNetwork(network)
             .withNetworkAliases("chrome")
-            .withCapabilities(new ChromeOptions())
+            .withSharedMemorySize(2L * 1024 * 1024 * 1024)
+            .withCapabilities(createChromeOptions())
             .withRecordingMode(BrowserWebDriverContainer.VncRecordingMode.SKIP, null);
 
     private static final String TEST_REALM = "test";
@@ -83,7 +105,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testGetManagerAttributes () {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             driver.get(getAccountUrl());
 
@@ -100,6 +122,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/profile/positions")));
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-company-name"), "Contoso Ltd");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-department"), "Finance");
+            waitAndAssertInputValue(driver, By.id("azure-ad-manager-cost-center"), "Information Management");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-job-title"), "CVP Finance");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-mail"), "diegos@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-mobile-phone"), "");
@@ -107,9 +130,15 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-preferred-language"), "en-US");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-surname"), "Siciliani");
             waitAndAssertInputValue(driver, By.id("azure-ad-manager-user-principal-name"), "diegos@m365x214355.onmicrosoft.com");
+            waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-group-names0"), "Management+Group");
+            waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-manager-group-names1"), "Leadership+Team");
 
             // Verify that the manager endpoint was called just once
-            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/me/manager")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/transitiveMemberOf/microsoft.graph.group"))
+                .withQueryParam("$count", WireMock.equalTo("true"))
+                .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail,groupTypes,resourceProvisioningOptions"))
+                .withQueryParam("$filter", WireMock.equalTo("securityEnabled eq true and not(groupTypes/any(c:c eq 'Unified'))")));
 
             // Logout and login again
             logout(driver);
@@ -121,7 +150,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitButtonAndClick(driver, By.id("kc-login"));
 
             // Verify that the manager has been retrieved again
-            WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlEqualTo("/me/manager")));
+            WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
         } finally {
             driver.quit();
         }
@@ -129,7 +158,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testGetUserAttributes () {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             driver.get(getAccountUrl());
 
@@ -146,6 +175,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/profile/positions")));
             waitAndAssertInputValue(driver, By.id("azure-ad-user-company-name"), "Contoso Ltd");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-department"), "Finance");
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-cost-center"), "Information Management");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-job-title"), "Auditor");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mail"), "meganb@m365x214355.onmicrosoft.com");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-mobile-phone"), "+1 425 555 0110");
@@ -153,9 +183,15 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitAndAssertInputValue(driver, By.id("azure-ad-user-preferred-language"), "en-US");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-surname"), "Bowen");
             waitAndAssertInputValue(driver, By.id("azure-ad-user-user-principal-name"), "meganb@m365x214355.onmicrosoft.com");
+            waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-group-names0"), "Finance+Group");
+            waitAndAssertInputValue(driver, byDataTestId("attributes.azure-ad-user-group-names1"), "Oulu+Team");
 
             // Verify that the user endpoint was called just once
-            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlEqualTo("/me")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/transitiveMemberOf/microsoft.graph.group"))
+                .withQueryParam("$count", WireMock.equalTo("true"))
+                .withQueryParam("$select", WireMock.equalTo("id,displayName,description,mail,groupTypes,resourceProvisioningOptions"))
+                .withQueryParam("$filter", WireMock.equalTo("securityEnabled eq true and not(groupTypes/any(c:c eq 'Unified'))")));
 
             // Logout and login again
             logout(driver);
@@ -167,7 +203,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             waitButtonAndClick(driver, By.id("kc-login"));
 
             // Verify that the user has been retrieved again
-            WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlEqualTo("/me")));
+            WireMock.verify(2, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
         } finally {
             driver.quit();
         }
@@ -175,22 +211,22 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testGroups() {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             loginWithAzure(driver);
             waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
 
-            // Default mock returns azure-finance, azure-auditors and non-managed All Staff group
+            // Default mock returns Finance Group, Oulu Team and non-managed All Staff group
             assertEquals(Set.of("/finance", "/parent/child"), getManagedGroupPaths());
 
             // Non-managed Keycloak groups must not be touched by the mapper
             UserResource user = getTestUserResource();
             user.joinGroup(getGroupByPath("/parent").getId());
 
-            // User has left azure-auditors and joined azure-sales in Azure
+            // User has left Oulu Team and joined Sales Group in Azure
             WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
                 .atPriority(1)
-                .willReturn(WireMock.okJson(getTransitiveMemberOfJson("azure-finance", "azure-sales"))));
+                .willReturn(WireMock.okJson(getTransitiveMemberOfJson("Finance Group", "Sales Group"))));
 
             logout(driver);
             loginWithAzure(driver);
@@ -207,13 +243,13 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testUserGroupNames() {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             loginWithAzure(driver);
             waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
 
             // Group without display name is skipped and names are URL-encoded for storage
-            assertEquals(Set.of("azure-finance", "azure-auditors", "All+Staff"), Set.copyOf(getTestUserAttribute("azure-ad-user-group-names")));
+            assertEquals(Set.of("Finance+Group", "Oulu+Team", "All+Staff"), Set.copyOf(getTestUserAttribute("azure-ad-user-group-names")));
 
             // Groups mapper and group names mapper share the same request during the login
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH)));
@@ -235,7 +271,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testGraphApiErrors() {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             loginWithAzure(driver);
             waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
@@ -270,7 +306,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testGraphApiTimeout() {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             loginWithAzure(driver);
             waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
@@ -299,7 +335,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testGraphApiStalledResponseBody() {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             loginWithAzure(driver);
             waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
@@ -328,7 +364,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
     @Test
     void testUserWithoutManager() {
-        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
             // Graph API responds with 404 when user does not have a manager
             WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/me/manager"))

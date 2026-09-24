@@ -9,6 +9,8 @@ public class GraphProfileCompany {
 
     private String department;
 
+    private String costCenter;
+
     public String getDisplayName() {
         return displayName;
     }
@@ -23,5 +25,13 @@ public class GraphProfileCompany {
 
     public void setDepartment(String department) {
         this.department = department;
+    }
+
+    public String getCostCenter() {
+        return costCenter;
+    }
+
+    public void setCostCenter(String costCenter) {
+        this.costCenter = costCenter;
     }
 }
