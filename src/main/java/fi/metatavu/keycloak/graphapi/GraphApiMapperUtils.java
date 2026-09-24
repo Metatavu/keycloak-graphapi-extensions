@@ -8,6 +8,7 @@ import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessTokenResponse;
+import org.keycloak.sessions.AuthenticationSessionModel;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -24,6 +25,8 @@ import java.util.function.Function;
 final class GraphApiMapperUtils {
 
     static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
+
+    private static final String UNAVAILABLE_USER_NOTE = "unavailable";
 
     private GraphApiMapperUtils() {
     }
@@ -71,9 +74,18 @@ final class GraphApiMapperUtils {
 
     /**
      * Fetches a GraphUser from the context or by calling the fetcher.
+     *
+     * Result is cached in the authentication session, so that the Graph API is called only once per login
+     * regardless of how many mappers use the same user. Unavailable user (request failure or not found) is
+     * cached as well to prevent every mapper from repeating a request that already failed during the same login.
      */
     static GraphUser fetchGraphUser(BrokeredIdentityContext context, Logger logger, String cacheKey, GraphUserFetcher fetcher) {
-        String cachedUser = context.getAuthenticationSession().getAuthNote(cacheKey);
+        AuthenticationSessionModel authenticationSession = context.getAuthenticationSession();
+        String cachedUser = authenticationSession.getAuthNote(cacheKey);
+        if (UNAVAILABLE_USER_NOTE.equals(cachedUser)) {
+            return null;
+        }
+
         if (cachedUser != null) {
             try {
                 return new ObjectMapper().readValue(cachedUser, GraphUser.class);
@@ -82,29 +94,39 @@ final class GraphApiMapperUtils {
             }
         }
 
+        GraphUser graphUser = requestGraphUser(context, logger, fetcher);
+        if (graphUser == null) {
+            authenticationSession.setAuthNote(cacheKey, UNAVAILABLE_USER_NOTE);
+            return null;
+        }
+
+        try {
+            authenticationSession.setAuthNote(cacheKey, new ObjectMapper().writeValueAsString(graphUser));
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to cache user", e);
+        }
+
+        return graphUser;
+    }
+
+    /**
+     * Requests a GraphUser from the Graph API using the fetcher.
+     *
+     * @return GraphUser or null if request failed or user was not found
+     */
+    private static GraphUser requestGraphUser(BrokeredIdentityContext context, Logger logger, GraphUserFetcher fetcher) {
         AccessTokenResponse brokerToken = parseBrokerToken(context, logger);
         if (brokerToken == null) {
             logger.warn("Broker token is null, cannot retrieve user");
             return null;
         }
 
-        GraphUser graphUser;
         try {
-            graphUser = fetcher.fetch(brokerToken);
+            return fetcher.fetch(brokerToken);
         } catch (IOException e) {
             logger.error("Failed to get user", e);
             return null;
         }
-
-        if (graphUser != null) {
-            try {
-                context.getAuthenticationSession().setAuthNote(cacheKey, new ObjectMapper().writeValueAsString(graphUser));
-            } catch (JsonProcessingException e) {
-                logger.error("Failed to cache user", e);
-            }
-        }
-
-        return graphUser;
     }
 
     /**

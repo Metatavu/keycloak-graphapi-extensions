@@ -247,16 +247,38 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
             // Login must still succeed when Graph API fails
             logout(driver);
+            WireMock.resetAllRequests();
             loginWithAzure(driver);
             waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
 
-            WireMock.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
-            WireMock.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
+            // Failed requests must not be repeated by every mapper during the same login
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
             WireMock.verify(WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH)));
 
             // Existing data must be preserved when Graph API fails
             assertEquals(groupsBefore, getUserGroupPaths());
             assertEquals(attributesBefore, getTestUser().getAttributes());
+        } finally {
+            driver.quit();
+        }
+    }
+
+    @Test
+    void testUserWithoutManager() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        try {
+            // Graph API responds with 404 when user does not have a manager
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/me/manager"))
+                .atPriority(1)
+                .willReturn(WireMock.notFound()));
+
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            // Missing manager must be requested only once per login regardless of the number of manager mappers
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me/manager")));
+            WireMock.verify(0, WireMock.getRequestedFor(WireMock.urlPathMatching("/users/.*/profile/positions")));
         } finally {
             driver.quit();
         }
