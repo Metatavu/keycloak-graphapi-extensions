@@ -50,7 +50,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
     private void updateGroups(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
         List<String> azureGroupNames = GraphApiMapperUtils.fetchUserGroupNames(context, logger);
         if (azureGroupNames == null) {
-            logger.warn("Could not retrieve user groups from GraphAPI, skipping group GraphAPI group mapping");
+            logger.debug("Could not retrieve user groups from GraphAPI, skipping group GraphAPI group mapping");
             return;
         }
 
@@ -81,20 +81,22 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
 
         ArrayList<GroupModel> joinUserGroups = new ArrayList<>();
 
-        logger.info("User's Azure groups: " + String.join(", ", azureGroupNames));
+        if (logger.isDebugEnabled()) {
+            logger.debugf("User's Azure groups: %s", String.join(", ", azureGroupNames));
+        }
 
         for (String azureGroupName : azureGroupNames) {
-            logger.info("Processing Azure group: " + azureGroupName);
+            logger.debugf("Processing Azure group: %s", azureGroupName);
 
             if (managedAzureGroupNames.contains(azureGroupName)) {
                 List<String> keycloakGroups = groupMappings.get(azureGroupName);
                 for (String keycloakGroup : keycloakGroups) {
                     if (previousGroupNames.contains(keycloakGroup)) {
-                        logger.info("Not removing user from group " + keycloakGroup);
+                        logger.debugf("Not removing user from group %s", keycloakGroup);
                         leaveUserGroups.removeIf(group -> getGroupPath(groupTree, group.getId()).equals(keycloakGroup));
                     } else {
                         if (managedKeycloakGroups.containsKey(keycloakGroup)) {
-                            logger.info("Adding user to join group " + keycloakGroup);
+                            logger.debugf("Adding user to join group %s", keycloakGroup);
                             joinUserGroups.add(managedKeycloakGroups.get(keycloakGroup));
                         } else {
                             logger.warn("Could not find managed Keycloak group " + keycloakGroup);
@@ -102,7 +104,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
                     }
                 }
             } else {
-                logger.info("Skipping non-managed Azure group " + azureGroupName);
+                logger.debugf("Skipping non-managed Azure group %s", azureGroupName);
             }
         }
 

@@ -114,7 +114,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
             List<String> groupNames = GraphApiMapperUtils.fetchUserGroupNames(context, logger);
             if (groupNames == null) {
-                logger.warn("Could not retrieve user groups from Graph API, skipping user group names update");
+                logger.debug("Could not retrieve user groups from Graph API, skipping user group names update");
                 return;
             }
 
@@ -124,7 +124,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
 
         GraphUser graphUser = getUser(context);
         if (graphUser == null) {
-            logger.warn("Could not retrieve user from Graph API, skipping user update");
+            logger.debug("Could not retrieve user from Graph API, skipping user update");
             return;
         }
 

@@ -100,7 +100,7 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
 
         GraphUser manager = getManager(context);
         if (manager == null) {
-            logger.warn("Could not retrieve manager from Graph API, skipping manager update");
+            logger.debug("Could not retrieve manager from Graph API, skipping manager update");
             return;
         }
 
