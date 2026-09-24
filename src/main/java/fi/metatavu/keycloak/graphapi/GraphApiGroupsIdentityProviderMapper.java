@@ -20,7 +20,6 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
 
     private static final Logger logger = Logger.getLogger(GraphApiGroupsIdentityProviderMapper.class);
     private static final String PROVIDER_ID = "graph-api-groups-identity-provider-mapper";
-    private static final Set<IdentityProviderSyncMode> IDENTITY_PROVIDER_SYNC_MODES = new HashSet<>(Arrays.asList(IdentityProviderSyncMode.values()));
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final String CONFIG_GRAPH_API_GROUP_MAPPING = "graph-api-group-mapping";
 
@@ -35,11 +34,6 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
 
     public GraphApiGroupsIdentityProviderMapper() {
         super(PROVIDER_ID, "Graph API Groups", "Graph API Groups Identity Provider Mapper", configProperties);
-    }
-
-    @Override
-    public boolean supportsSyncMode(IdentityProviderSyncMode syncMode) {
-        return IDENTITY_PROVIDER_SYNC_MODES.contains(syncMode);
     }
 
     @Override

@@ -1,14 +1,19 @@
 package fi.metatavu.keycloak.graphapi;
 
 import org.keycloak.broker.provider.AbstractIdentityProviderMapper;
+import org.keycloak.models.IdentityProviderSyncMode;
 import org.keycloak.provider.ProviderConfigProperty;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Base mapper class for Graph API identity provider mappers to share boilerplate.
  */
 public abstract class AbstractGraphApiIdentityProviderMapper extends AbstractIdentityProviderMapper {
+
+    private static final Set<IdentityProviderSyncMode> IDENTITY_PROVIDER_SYNC_MODES = EnumSet.allOf(IdentityProviderSyncMode.class);
 
     private final String providerId;
     private final String displayType;
@@ -26,6 +31,11 @@ public abstract class AbstractGraphApiIdentityProviderMapper extends AbstractIde
         this.helpText = helpText;
         this.configProperties = List.copyOf(configProperties);
         this.compatibleProviders = compatibleProviders.clone();
+    }
+
+    @Override
+    public boolean supportsSyncMode(IdentityProviderSyncMode syncMode) {
+        return IDENTITY_PROVIDER_SYNC_MODES.contains(syncMode);
     }
 
     @Override
