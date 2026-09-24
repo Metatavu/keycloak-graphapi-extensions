@@ -117,6 +117,11 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
 
         if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
             List<String> groupNames = getUserGroupNames(context);
+            if (groupNames == null) {
+                logger.warn("Could not retrieve user groups from Graph API, skipping user group names update");
+                return;
+            }
+
             GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
             return;
         }
@@ -141,18 +146,24 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         return GraphApiMapperUtils.fetchGraphUser(context, logger, USER_AUTH_NOTE, graphApiClient::getUser);
     }
 
+    /**
+     * Returns names of user's groups
+     *
+     * @param context brokered identity context
+     * @return names of user's groups or null if groups could not be retrieved
+     */
     private List<String> getUserGroupNames(BrokeredIdentityContext context) {
         AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
         if (brokerToken == null) {
             logger.warn("Broker token is null, cannot retrieve user groups");
-            return List.of();
+            return null;
         }
 
         GraphApiClient graphApiClient = new GraphApiClient();
         try {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(brokerToken);
             if (response == null || response.getValue() == null) {
-                return List.of();
+                return null;
             }
 
             List<String> groupNames = response.getValue().stream()
@@ -165,7 +176,7 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
             return groupNames;
         } catch (Exception e) {
             logger.error("Failed to get user groups", e);
-            return List.of();
+            return null;
         }
     }
 }
