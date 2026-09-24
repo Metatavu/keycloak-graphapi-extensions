@@ -14,12 +14,21 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 
 /**
  * Microsoft Graph API client
  */
 public class GraphApiClient {
     private static final Logger logger = Logger.getLogger(GraphApiClient.class);
+
+    private static final Duration CONNECT_TIMEOUT = getTimeout("GRAPH_API_CONNECT_TIMEOUT_SECONDS", Duration.ofSeconds(5));
+    private static final Duration REQUEST_TIMEOUT = getTimeout("GRAPH_API_REQUEST_TIMEOUT_SECONDS", Duration.ofSeconds(15));
+
+    // HttpClient is thread-safe and shared to reuse connections between requests
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(CONNECT_TIMEOUT)
+            .build();
 
     /**
      * Returns logged user's membership of groups
@@ -187,16 +196,17 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     private <T> T getGraphApiResource(AccessTokenResponse accessToken, String path, Class<T> clazz) throws IOException {
-        HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(String.format("%s/%s", getGraphApiUrl(), path)))
                 .header("Authorization", "Bearer " + accessToken.getToken())
+                .timeout(REQUEST_TIMEOUT)
                 .build();
 
         try {
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<InputStream> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofInputStream());
             return handleResponse(response, clazz);
         } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new IOException(e);
         }
     }
@@ -234,6 +244,32 @@ public class GraphApiClient {
     private <T> T deserialize(InputStream json, Class<T> clazz) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         return objectMapper.readValue(json, clazz);
+    }
+
+    /**
+     * Returns timeout from environment variable or default timeout if variable is not set or is invalid
+     *
+     * @param variableName environment variable name containing timeout in seconds
+     * @param defaultTimeout default timeout
+     * @return timeout
+     */
+    private static Duration getTimeout(String variableName, Duration defaultTimeout) {
+        String value = System.getenv(variableName);
+        if (value == null || value.isBlank()) {
+            return defaultTimeout;
+        }
+
+        try {
+            long seconds = Long.parseLong(value.trim());
+            if (seconds > 0) {
+                return Duration.ofSeconds(seconds);
+            }
+        } catch (NumberFormatException e) {
+            // Invalid value is reported below
+        }
+
+        logger.warnf("Invalid value '%s' in %s, using default %d seconds", value, variableName, defaultTimeout.toSeconds());
+        return defaultTimeout;
     }
 
     /**

@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers
 public class GraphApiTests extends AbstractSeleniumTest {
@@ -258,6 +259,35 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
             // Existing data must be preserved when Graph API fails
             assertEquals(groupsBefore, getUserGroupPaths());
+            assertEquals(attributesBefore, getTestUser().getAttributes());
+        } finally {
+            driver.quit();
+        }
+    }
+
+    @Test
+    void testGraphApiTimeout() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), new ChromeOptions());
+        try {
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            Map<String, List<String>> attributesBefore = getTestUser().getAttributes();
+
+            // Graph API responds slower than the request timeout (2 seconds in tests)
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/me"))
+                .atPriority(1)
+                .willReturn(WireMock.okJson("{}").withFixedDelay(10000)));
+
+            logout(driver);
+            WireMock.resetAllRequests();
+            long loginStarted = System.currentTimeMillis();
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            // Login must not wait for the slow response and timed out request must not be repeated by every mapper
+            assertTrue(System.currentTimeMillis() - loginStarted < 10000, "Login should not wait for the slow Graph API response");
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo("/me")));
             assertEquals(attributesBefore, getTestUser().getAttributes());
         } finally {
             driver.quit();
