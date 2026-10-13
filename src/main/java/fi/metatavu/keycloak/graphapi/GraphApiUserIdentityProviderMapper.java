@@ -115,13 +115,13 @@ public class GraphApiUserIdentityProviderMapper extends AbstractGraphApiIdentity
         String keycloakAttribute = mapperModel.getConfig().get(CONFIG_GRAPH_API_USER_ATTRIBUTE_KEYCLOAK_NAME);
 
         if (USER_GROUP_NAMES.equals(graphApiAttribute)) {
-            List<String> groupNames = GraphApiMapperUtils.fetchUserGroupNames(context, new GraphApiClient(), logger);
-            if (groupNames == null) {
+            List<String> groupDisplayNames = GraphApiMapperUtils.fetchUserGroupDisplayNames(context, new GraphApiClient(), logger);
+            if (groupDisplayNames == null) {
                 logger.debug("Could not retrieve user groups from Graph API, skipping user group names update");
                 return;
             }
 
-            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
+            GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, GraphApiMapperUtils.encodeGroupNames(groupDisplayNames));
             return;
         }
 
