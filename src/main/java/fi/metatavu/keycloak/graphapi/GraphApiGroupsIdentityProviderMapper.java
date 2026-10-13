@@ -8,6 +8,7 @@ import org.keycloak.provider.ProviderConfigProperty;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * GraphAPI groups identity provider mapper
@@ -49,14 +50,13 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
      * @param context brokered identity context
      */
     private void updateGroups(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
-        List<String> azureGroupNames = GraphApiMapperUtils.fetchUserGroupNames(context, createGraphApiClient(), logger);
+        List<String> azureGroupNames = GraphApiMapperUtils.fetchUserGroupDisplayNames(context, createGraphApiClient(), logger);
         if (azureGroupNames == null) {
             logger.debug("Could not retrieve user groups from GraphAPI, skipping group GraphAPI group mapping");
             return;
         }
 
         Map<String, List<String>> groupMappings = getGroupMappings(mapperModel);
-        List<String> managedAzureGroupNames = groupMappings.keySet().stream().toList();
         List<String> managedKeycloakGroupNames = groupMappings.values().stream()
             .flatMap(List::stream)
             .toList();
@@ -89,16 +89,19 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
         for (String azureGroupName : azureGroupNames) {
             logger.debugf("Processing Azure group: %s", azureGroupName);
 
-            if (managedAzureGroupNames.contains(azureGroupName)) {
-                List<String> keycloakGroups = groupMappings.get(azureGroupName);
+            List<String> keycloakGroups = getMappedKeycloakGroups(groupMappings, azureGroupName);
+            if (!keycloakGroups.isEmpty()) {
                 for (String keycloakGroup : keycloakGroups) {
                     if (previousGroupNames.contains(keycloakGroup)) {
                         logger.debugf("Not removing user from group %s", keycloakGroup);
                         leaveUserGroups.removeIf(group -> getGroupPath(groupTree, group.getId()).equals(keycloakGroup));
                     } else {
                         if (managedKeycloakGroups.containsKey(keycloakGroup)) {
-                            logger.debugf("Adding user to join group %s", keycloakGroup);
-                            joinUserGroups.add(managedKeycloakGroups.get(keycloakGroup));
+                            GroupModel joinGroup = managedKeycloakGroups.get(keycloakGroup);
+                            if (!joinUserGroups.contains(joinGroup)) {
+                                logger.debugf("Adding user to join group %s", keycloakGroup);
+                                joinUserGroups.add(joinGroup);
+                            }
                         } else {
                             logger.warn("Could not find managed Keycloak group " + keycloakGroup);
                         }
@@ -135,6 +138,26 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
      */
     protected GraphApiClient createGraphApiClient() {
         return new GraphApiClient();
+    }
+
+    /**
+     * Returns Keycloak groups mapped to an Azure group.
+     *
+     * Mapping keys are matched against both the trimmed display name and the URL-encoded display name. Versions up
+     * to 1.1.5 matched trimmed display names and later versions matched URL-encoded display names, so mappings
+     * configured for either version keep working.
+     *
+     * @param groupMappings group mappings
+     * @param azureGroupName Azure group display name
+     * @return mapped Keycloak group paths or empty list if the Azure group is not managed
+     */
+    private List<String> getMappedKeycloakGroups(Map<String, List<String>> groupMappings, String azureGroupName) {
+        return Stream.of(azureGroupName.trim(), GraphApiMapperUtils.encodeForStorage(azureGroupName).trim())
+            .distinct()
+            .filter(groupMappings::containsKey)
+            .flatMap(mappingKey -> groupMappings.get(mappingKey).stream())
+            .distinct()
+            .toList();
     }
 
     /**

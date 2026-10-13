@@ -31,7 +31,7 @@ final class GraphApiMapperUtils {
     static final String[] COMPATIBLE_PROVIDERS = new String[] {"oidc"};
 
     private static final String UNAVAILABLE_NOTE = "unavailable";
-    private static final String USER_GROUP_NAMES_NOTE = "graph-api-user-group-names";
+    private static final String USER_GROUP_DISPLAY_NAMES_NOTE = "graph-api-user-group-display-names";
 
     private GraphApiMapperUtils() {
     }
@@ -85,30 +85,48 @@ final class GraphApiMapperUtils {
     }
 
     /**
-     * Fetches names of the logged user's groups from the context or from the Graph API.
+     * Fetches display names of the logged user's groups from the context or from the Graph API.
      *
-     * @return group names or null if groups could not be retrieved
+     * Names are returned as received from the Graph API. Use {@link #encodeGroupNames(List)} to convert them into
+     * names suitable for storage.
+     *
+     * @return group display names or null if groups could not be retrieved
      */
-    static List<String> fetchUserGroupNames(BrokeredIdentityContext context, GraphApiClient graphApiClient, Logger logger) {
-        String[] groupNames = fetchCached(context, logger, USER_GROUP_NAMES_NOTE, String[].class, accessToken -> {
+    static List<String> fetchUserGroupDisplayNames(BrokeredIdentityContext context, GraphApiClient graphApiClient, Logger logger) {
+        String[] displayNames = fetchCached(context, logger, USER_GROUP_DISPLAY_NAMES_NOTE, String[].class, accessToken -> {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(accessToken);
             if (response == null || response.getValue() == null) {
                 return null;
             }
 
-            return toGroupNames(response.getValue()).toArray(String[]::new);
+            return toGroupDisplayNames(response.getValue()).toArray(String[]::new);
         });
 
-        return groupNames == null ? null : List.of(groupNames);
+        return displayNames == null ? null : List.of(displayNames);
+    }
+
+    /**
+     * Returns display names of Graph API groups. Groups without a display name are skipped.
+     */
+    static List<String> toGroupDisplayNames(List<TransitiveMemberOfGroup> groups) {
+        return groups.stream()
+            .map(TransitiveMemberOfGroup::getDisplayName)
+            .filter(Objects::nonNull)
+            .toList();
     }
 
     /**
      * Converts Graph API groups into group names suitable for storage. Groups without a display name are skipped.
      */
     static List<String> toGroupNames(List<TransitiveMemberOfGroup> groups) {
-        return groups.stream()
-            .map(TransitiveMemberOfGroup::getDisplayName)
-            .filter(Objects::nonNull)
+        return encodeGroupNames(toGroupDisplayNames(groups));
+    }
+
+    /**
+     * Converts group display names into group names suitable for storage. Names that are empty after encoding are skipped.
+     */
+    static List<String> encodeGroupNames(List<String> displayNames) {
+        return displayNames.stream()
             .map(GraphApiMapperUtils::encodeForStorage)
             .map(String::trim)
             .filter(name -> !name.isEmpty())
