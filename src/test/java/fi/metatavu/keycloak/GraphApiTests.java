@@ -294,6 +294,9 @@ public class GraphApiTests extends AbstractSeleniumTest {
             assertLogContains(logs, "response: { \"value\": [ { \"id\": \"42f8f6a3-ea24-4d4f-a9b6-9284cf32ce15\", \"displayName\": \"Finance Group\", ");
             assertLogContains(logs, "Graph API group mapping [user=test1, idp=oidc, ");
 
+            Set<String> managedGroupsBefore = getManagedGroupPaths();
+            assertEquals(Set.of("/finance", "/parent/child"), managedGroupsBefore);
+
             // Graph API returns no groups for the user
             WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
                 .atPriority(1)
@@ -308,7 +311,10 @@ public class GraphApiTests extends AbstractSeleniumTest {
             assertLogContains(logs, "Graph API user groups may be incomplete [reasons=no-groups, ");
             assertLogContains(logs, "requestId=request-no-groups, received=0, filteredLocally=0, withoutDisplayName=0, groups=0, odataCount=0, nextPage=false");
             assertLogContains(logs, "response: {\"@odata.count\":0,\"value\":[]}");
-            assertLogContains(logs, "Graph API group mapping removes user from all managed groups [user=test1, idp=oidc, ");
+            assertLogContains(logs, "Graph API group mapping would remove user from all managed groups, keeping the groups [user=test1, idp=oidc, ");
+
+            // User is kept in the groups instead of removing all of them
+            assertEquals(managedGroupsBefore, getManagedGroupPaths());
 
             // Graph API returns only part of the groups
             WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
@@ -323,6 +329,9 @@ public class GraphApiTests extends AbstractSeleniumTest {
             logs = keycloakContainer.getLogs().substring(logOffset);
             assertLogContains(logs, "Graph API user groups may be incomplete [reasons=more-groups-available, ");
             assertLogContains(logs, "received=1, filteredLocally=0, withoutDisplayName=0, groups=1, odataCount=2, nextPage=true");
+
+            // Removal from some of the groups is applied
+            assertEquals(Set.of("/finance"), getManagedGroupPaths());
 
             // Graph API denies the request
             WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
