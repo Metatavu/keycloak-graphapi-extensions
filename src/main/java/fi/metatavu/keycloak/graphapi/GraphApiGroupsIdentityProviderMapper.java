@@ -8,6 +8,7 @@ import org.keycloak.provider.ProviderConfigProperty;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * GraphAPI groups identity provider mapper
@@ -18,6 +19,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
     private static final String PROVIDER_ID = "graph-api-groups-identity-provider-mapper";
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final String CONFIG_GRAPH_API_GROUP_MAPPING = "graph-api-group-mapping";
+    private static final String CONFIG_KEEP_GROUPS_WHEN_ALL_WOULD_BE_REMOVED = "keep-groups-when-all-would-be-removed";
 
     static {
         ProviderConfigProperty claimsProperty = new ProviderConfigProperty();
@@ -26,6 +28,14 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
         claimsProperty.setHelpText("Map Azure groups to Keycloak groups");
         claimsProperty.setType(ProviderConfigProperty.MAP_TYPE);
         configProperties.add(claimsProperty);
+
+        ProviderConfigProperty keepGroupsProperty = new ProviderConfigProperty();
+        keepGroupsProperty.setName(CONFIG_KEEP_GROUPS_WHEN_ALL_WOULD_BE_REMOVED);
+        keepGroupsProperty.setLabel("Keep groups when all would be removed");
+        keepGroupsProperty.setHelpText("When a login would remove the user from all managed groups without joining any, keep the user in the groups. Graph API may return an incomplete group list, so this prevents losing all permissions because of it. Removals from some of the groups are always applied. Enabled when not set.");
+        keepGroupsProperty.setType(ProviderConfigProperty.BOOLEAN_TYPE);
+        keepGroupsProperty.setDefaultValue(Boolean.TRUE.toString());
+        configProperties.add(keepGroupsProperty);
     }
 
     public GraphApiGroupsIdentityProviderMapper() {
@@ -49,14 +59,13 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
      * @param context brokered identity context
      */
     private void updateGroups(KeycloakSession session, RealmModel realm, UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context) {
-        List<String> azureGroupNames = GraphApiMapperUtils.fetchUserGroupNames(context, createGraphApiClient(), logger);
+        List<String> azureGroupNames = GraphApiMapperUtils.fetchUserGroupDisplayNames(context, createGraphApiClient(), logger);
         if (azureGroupNames == null) {
             logger.debug("Could not retrieve user groups from GraphAPI, skipping group GraphAPI group mapping");
             return;
         }
 
         Map<String, List<String>> groupMappings = getGroupMappings(mapperModel);
-        List<String> managedAzureGroupNames = groupMappings.keySet().stream().toList();
         List<String> managedKeycloakGroupNames = groupMappings.values().stream()
             .flatMap(List::stream)
             .toList();
@@ -81,6 +90,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             .toList();
 
         ArrayList<GroupModel> joinUserGroups = new ArrayList<>();
+        List<String> matchedAzureGroupNames = new ArrayList<>();
 
         if (logger.isDebugEnabled()) {
             logger.debugf("User's Azure groups: %s", String.join(", ", azureGroupNames));
@@ -89,16 +99,20 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
         for (String azureGroupName : azureGroupNames) {
             logger.debugf("Processing Azure group: %s", azureGroupName);
 
-            if (managedAzureGroupNames.contains(azureGroupName)) {
-                List<String> keycloakGroups = groupMappings.get(azureGroupName);
+            List<String> keycloakGroups = getMappedKeycloakGroups(groupMappings, azureGroupName);
+            if (!keycloakGroups.isEmpty()) {
+                matchedAzureGroupNames.add(azureGroupName);
                 for (String keycloakGroup : keycloakGroups) {
                     if (previousGroupNames.contains(keycloakGroup)) {
                         logger.debugf("Not removing user from group %s", keycloakGroup);
                         leaveUserGroups.removeIf(group -> getGroupPath(groupTree, group.getId()).equals(keycloakGroup));
                     } else {
                         if (managedKeycloakGroups.containsKey(keycloakGroup)) {
-                            logger.debugf("Adding user to join group %s", keycloakGroup);
-                            joinUserGroups.add(managedKeycloakGroups.get(keycloakGroup));
+                            GroupModel joinGroup = managedKeycloakGroups.get(keycloakGroup);
+                            if (!joinUserGroups.contains(joinGroup)) {
+                                logger.debugf("Adding user to join group %s", keycloakGroup);
+                                joinUserGroups.add(joinGroup);
+                            }
                         } else {
                             logger.warn("Could not find managed Keycloak group " + keycloakGroup);
                         }
@@ -107,6 +121,20 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             } else {
                 logger.debugf("Skipping non-managed Azure group %s", azureGroupName);
             }
+        }
+
+        MappingResult mappingResult = new MappingResult(
+            matchedAzureGroupNames,
+            previousGroupNames,
+            getGroupPaths(groupTree, joinUserGroups),
+            getGroupPaths(groupTree, leaveUserGroups)
+        );
+
+        boolean keepGroups = mappingResult.removesAllManagedGroups() && isKeepGroupsWhenAllWouldBeRemoved(mapperModel);
+        logMappingResult(user, mapperModel, context, azureGroupNames.size(), mappingResult, keepGroups);
+
+        if (keepGroups) {
+            leaveUserGroups.clear();
         }
 
         for (GroupModel group : joinUserGroups) {
@@ -129,12 +157,96 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
     }
 
     /**
+     * Logs the result of the group mapping for the login.
+     *
+     * Warns when the user would be removed from all managed groups without joining any, because that happens also
+     * when Graph API returns an incomplete group list.
+     *
+     * @param user user
+     * @param mapperModel mapper model
+     * @param context brokered identity context
+     * @param azureGroupCount number of user's Azure groups
+     * @param result mapping result
+     * @param keepGroups whether the user is kept in the groups instead of removing them
+     */
+    private void logMappingResult(UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context, int azureGroupCount, MappingResult result, boolean keepGroups) {
+        String summary = String.format(
+            "user=%s, idp=%s, brokerUserId=%s, azureGroups=%d, matchedAzureGroups=%s, managedGroupsBefore=%s, join=%s, leave=%s",
+            user.getUsername(),
+            mapperModel.getIdentityProviderAlias(),
+            context.getId(),
+            azureGroupCount,
+            result.matchedAzureGroups(),
+            result.managedGroupsBefore(),
+            result.join(),
+            result.leave()
+        );
+
+        if (keepGroups) {
+            logger.warnf("Graph API group mapping would remove user from all managed groups, keeping the groups [%s]", summary);
+        } else if (result.removesAllManagedGroups()) {
+            logger.warnf("Graph API group mapping removes user from all managed groups [%s]", summary);
+        } else {
+            logger.infof("Graph API group mapping [%s]", summary);
+        }
+    }
+
+    /**
+     * Returns whether the user is kept in the managed groups when a login would remove the user from all of them.
+     * Enabled when not configured, so that existing mappers get the protection.
+     *
+     * @param mapperModel mapper model
+     * @return whether the user is kept in the managed groups
+     */
+    private boolean isKeepGroupsWhenAllWouldBeRemoved(IdentityProviderMapperModel mapperModel) {
+        Map<String, String> config = mapperModel.getConfig();
+        if (config == null) {
+            return true;
+        }
+
+        return !Boolean.FALSE.toString().equalsIgnoreCase(config.get(CONFIG_KEEP_GROUPS_WHEN_ALL_WOULD_BE_REMOVED));
+    }
+
+    /**
+     * Returns paths of groups
+     *
+     * @param groupTree group tree
+     * @param groups groups
+     * @return group paths
+     */
+    private List<String> getGroupPaths(Map<String, GroupModel> groupTree, List<GroupModel> groups) {
+        return groups.stream()
+            .map(group -> getGroupPath(groupTree, group.getId()))
+            .toList();
+    }
+
+    /**
      * Creates a Graph API client.
      *
      * @return Graph API client
      */
     protected GraphApiClient createGraphApiClient() {
         return new GraphApiClient();
+    }
+
+    /**
+     * Returns Keycloak groups mapped to an Azure group.
+     *
+     * Mapping keys are matched against both the trimmed display name and the URL-encoded display name. Versions up
+     * to 1.1.5 matched trimmed display names and later versions matched URL-encoded display names, so mappings
+     * configured for either version keep working.
+     *
+     * @param groupMappings group mappings
+     * @param azureGroupName Azure group display name
+     * @return mapped Keycloak group paths or empty list if the Azure group is not managed
+     */
+    private List<String> getMappedKeycloakGroups(Map<String, List<String>> groupMappings, String azureGroupName) {
+        return Stream.of(azureGroupName.trim(), GraphApiMapperUtils.encodeForStorage(azureGroupName).trim())
+            .distinct()
+            .filter(groupMappings::containsKey)
+            .flatMap(mappingKey -> groupMappings.get(mappingKey).stream())
+            .distinct()
+            .toList();
     }
 
     /**
@@ -169,6 +281,27 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
         }
 
         return group.getName();
+    }
+
+    /**
+     * Result of the group mapping for a login
+     *
+     * @param matchedAzureGroups names of the Azure groups that matched the mapping
+     * @param managedGroupsBefore paths of the managed groups the user belonged to before the login
+     * @param join paths of the groups the user joins
+     * @param leave paths of the groups the user leaves
+     */
+    private record MappingResult(List<String> matchedAzureGroups, List<String> managedGroupsBefore, List<String> join, List<String> leave) {
+
+        /**
+         * Returns whether the user is removed from all managed groups the user belonged to without joining any
+         *
+         * @return whether the user is removed from all managed groups
+         */
+        boolean removesAllManagedGroups() {
+            return !managedGroupsBefore.isEmpty() && leave.size() == managedGroupsBefore.size() && join.isEmpty();
+        }
+
     }
 
 }
