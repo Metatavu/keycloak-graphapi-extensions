@@ -95,7 +95,8 @@ public class TransitiveMemberOfGroupsResponse {
     }
 
     /**
-     * Returns response body as received from Graph API
+     * Returns response body as received from Graph API, with line breaks replaced by spaces so that it can be logged
+     * as a single line
      *
      * @return response body or null if not known
      */

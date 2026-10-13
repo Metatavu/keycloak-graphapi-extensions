@@ -37,6 +37,8 @@ class GraphApiMapperUtilsTest {
         assertEquals(Map.of(), GraphApiMapperUtils.getAccessTokenClaims(new AccessTokenResponse()));
         assertEquals(Map.of(), GraphApiMapperUtils.getAccessTokenClaims(opaqueToken));
         assertEquals(Map.of(), GraphApiMapperUtils.getAccessTokenClaims(invalidPayloadToken));
+        assertEquals(Map.of(), GraphApiMapperUtils.getAccessTokenClaims(accessToken("null")));
+        assertEquals(Map.of(), GraphApiMapperUtils.getAccessTokenClaims(accessToken("[\"tid\"]")));
     }
 
     @Test

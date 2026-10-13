@@ -157,7 +157,7 @@ final class GraphApiMapperUtils {
                 "Graph API user groups may be incomplete [reasons=%s, %s], response: %s",
                 String.join(",", reasons),
                 summary,
-                truncate(toSingleLine(response.getRawBody()), MAX_LOGGED_RESPONSE_LENGTH)
+                truncate(response.getRawBody(), MAX_LOGGED_RESPONSE_LENGTH)
             );
         }
     }
@@ -200,22 +200,11 @@ final class GraphApiMapperUtils {
 
         try {
             byte[] payload = Base64.getUrlDecoder().decode(parts[1]);
-            return new ObjectMapper().readValue(payload, new TypeReference<Map<String, Object>>() {});
+            Map<String, Object> claims = new ObjectMapper().readValue(payload, new TypeReference<Map<String, Object>>() {});
+            return claims == null ? Map.of() : claims;
         } catch (IOException | IllegalArgumentException e) {
             return Map.of();
         }
-    }
-
-    /**
-     * Removes line breaks and indentation from a JSON value, so that it is logged as a single line. JSON strings
-     * cannot contain line breaks, so the value itself does not change.
-     */
-    private static String toSingleLine(String json) {
-        if (json == null) {
-            return null;
-        }
-
-        return json.replaceAll("\\s*\\R\\s*", "");
     }
 
     /**

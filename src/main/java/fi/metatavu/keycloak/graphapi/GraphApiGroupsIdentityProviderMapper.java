@@ -114,7 +114,14 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             }
         }
 
-        logMappingResult(user, mapperModel, context, azureGroupNames, matchedAzureGroupNames, previousGroupNames, joinUserGroups, leaveUserGroups, groupTree);
+        MappingResult mappingResult = new MappingResult(
+            matchedAzureGroupNames,
+            previousGroupNames,
+            getGroupPaths(groupTree, joinUserGroups),
+            getGroupPaths(groupTree, leaveUserGroups)
+        );
+
+        logMappingResult(user, mapperModel, context, azureGroupNames.size(), mappingResult);
 
         for (GroupModel group : joinUserGroups) {
             logger.info("Joining user to group " + group.getName());
@@ -140,35 +147,44 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
      *
      * Warns when the user is removed from all managed groups without joining any, because that happens also when
      * Graph API returns an incomplete group list.
+     *
+     * @param user user
+     * @param mapperModel mapper model
+     * @param context brokered identity context
+     * @param azureGroupCount number of user's Azure groups
+     * @param result mapping result
      */
-    private void logMappingResult(
-        UserModel user,
-        IdentityProviderMapperModel mapperModel,
-        BrokeredIdentityContext context,
-        List<String> azureGroupNames,
-        List<String> matchedAzureGroupNames,
-        List<String> previousGroupNames,
-        List<GroupModel> joinUserGroups,
-        List<GroupModel> leaveUserGroups,
-        Map<String, GroupModel> groupTree
-    ) {
+    private void logMappingResult(UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context, int azureGroupCount, MappingResult result) {
         String summary = String.format(
             "user=%s, idp=%s, brokerUserId=%s, azureGroups=%d, matchedAzureGroups=%s, managedGroupsBefore=%s, join=%s, leave=%s",
             user.getUsername(),
             mapperModel.getIdentityProviderAlias(),
             context.getId(),
-            azureGroupNames.size(),
-            matchedAzureGroupNames,
-            previousGroupNames,
-            joinUserGroups.stream().map(group -> getGroupPath(groupTree, group.getId())).toList(),
-            leaveUserGroups.stream().map(group -> getGroupPath(groupTree, group.getId())).toList()
+            azureGroupCount,
+            result.matchedAzureGroups(),
+            result.managedGroupsBefore(),
+            result.join(),
+            result.leave()
         );
 
-        if (!previousGroupNames.isEmpty() && leaveUserGroups.size() == previousGroupNames.size() && joinUserGroups.isEmpty()) {
+        if (!result.managedGroupsBefore().isEmpty() && result.leave().size() == result.managedGroupsBefore().size() && result.join().isEmpty()) {
             logger.warnf("Graph API group mapping removes user from all managed groups [%s]", summary);
         } else {
             logger.infof("Graph API group mapping [%s]", summary);
         }
+    }
+
+    /**
+     * Returns paths of groups
+     *
+     * @param groupTree group tree
+     * @param groups groups
+     * @return group paths
+     */
+    private List<String> getGroupPaths(Map<String, GroupModel> groupTree, List<GroupModel> groups) {
+        return groups.stream()
+            .map(group -> getGroupPath(groupTree, group.getId()))
+            .toList();
     }
 
     /**
@@ -232,6 +248,17 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
         }
 
         return group.getName();
+    }
+
+    /**
+     * Result of the group mapping for a login
+     *
+     * @param matchedAzureGroups names of the Azure groups that matched the mapping
+     * @param managedGroupsBefore paths of the managed groups the user belonged to before the login
+     * @param join paths of the groups the user joins
+     * @param leave paths of the groups the user leaves
+     */
+    private record MappingResult(List<String> matchedAzureGroups, List<String> managedGroupsBefore, List<String> join, List<String> leave) {
     }
 
 }

@@ -291,6 +291,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             assertLogContains(logs, "Graph API user groups [idp=oidc, ");
             assertLogContains(logs, "received=6, filteredLocally=2, withoutDisplayName=1, groups=3, odataCount=null, nextPage=false");
             assertLogContains(logs, "Graph API user groups may be incomplete [reasons=groups-without-display-name, ");
+            assertLogContains(logs, "response: { \"value\": [ { \"id\": \"42f8f6a3-ea24-4d4f-a9b6-9284cf32ce15\", \"displayName\": \"Finance Group\", ");
             assertLogContains(logs, "Graph API group mapping [user=test1, idp=oidc, ");
 
             // Graph API returns no groups for the user
@@ -329,7 +330,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
                 .willReturn(WireMock.aResponse()
                     .withStatus(403)
                     .withHeader("request-id", "request-denied")
-                    .withBody("{\"error\":{\"code\":\"Authorization_RequestDenied\",\"message\":\"Insufficient privileges to complete the operation.\"}}")));
+                    .withBody("{\n  \"error\": {\n    \"code\": \"Authorization_RequestDenied\",\n    \"message\": \"Insufficient privileges to complete the operation.\"\n  }\n}")));
 
             logOffset = keycloakContainer.getLogs().length();
             logout(driver);
@@ -339,7 +340,8 @@ public class GraphApiTests extends AbstractSeleniumTest {
             logs = keycloakContainer.getLogs().substring(logOffset);
             assertLogContains(logs, "Failed to get Graph API resource graph-api-user-group-display-names [idp=oidc, ");
             assertLogContains(logs, "Failed to execute: 403 [path=me/transitiveMemberOf/microsoft.graph.group?");
-            assertLogContains(logs, "requestId=request-denied, body={\"error\":{\"code\":\"Authorization_RequestDenied\"");
+            // Multiline error response is logged as a single line
+            assertLogContains(logs, "requestId=request-denied, body={ \"error\": { \"code\": \"Authorization_RequestDenied\", \"message\": \"Insufficient privileges to complete the operation.\" } }]");
         } finally {
             driver.quit();
         }

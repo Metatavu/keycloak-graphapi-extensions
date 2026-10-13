@@ -55,6 +55,7 @@ public class GraphApiClient {
 
     private static final String REQUEST_ID_HEADER = "request-id";
     private static final int MAX_ERROR_BODY_LENGTH = 2000;
+    private static final String LINE_BREAK_CHARACTERS = "\n\r\f\u0085\u2028\u2029" + (char) 0x0B;
 
     private static final Duration CONNECT_TIMEOUT = getTimeout("GRAPH_API_CONNECT_TIMEOUT_SECONDS", Duration.ofSeconds(5));
     private static final Duration REQUEST_TIMEOUT = getTimeout("GRAPH_API_REQUEST_TIMEOUT_SECONDS", Duration.ofSeconds(15));
@@ -116,7 +117,7 @@ public class GraphApiClient {
         TransitiveMemberOfGroupsResponse response = graphApiResponse.value();
         if (response != null) {
             response.setRequestId(graphApiResponse.requestId());
-            response.setRawBody(new String(graphApiResponse.body(), StandardCharsets.UTF_8));
+            response.setRawBody(graphApiResponse.body());
         }
 
         return response;
@@ -376,7 +377,7 @@ public class GraphApiClient {
         CompletableFuture<HttpResponse<byte[]>> responseFuture = HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
         try {
             HttpResponse<byte[]> response = responseFuture.get(REQUEST_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            return new GraphApiResponse<>(handleResponse(response, path, clazz), getRequestId(response), response.body());
+            return new GraphApiResponse<>(handleResponse(response, path, clazz), getRequestId(response), getSingleLineBody(response));
         } catch (TimeoutException e) {
             responseFuture.cancel(true);
             throw new HttpTimeoutException(String.format("Request to %s timed out", path));
@@ -415,7 +416,7 @@ public class GraphApiClient {
                 statusCode,
                 path,
                 getRequestId(response),
-                truncate(new String(response.body(), StandardCharsets.UTF_8), MAX_ERROR_BODY_LENGTH)
+                truncate(getSingleLineBody(response), MAX_ERROR_BODY_LENGTH)
             ));
         }
     }
@@ -428,6 +429,43 @@ public class GraphApiClient {
      */
     private String getRequestId(HttpResponse<?> response) {
         return response.headers().firstValue(REQUEST_ID_HEADER).orElse(null);
+    }
+
+    /**
+     * Returns response body as a single line, so that logging it cannot add log lines
+     *
+     * @param response HTTP response
+     * @return response body as a single line
+     */
+    private static String getSingleLineBody(HttpResponse<byte[]> response) {
+        return toSingleLine(new String(response.body(), StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Replaces line breaks and the whitespace following them with a single space
+     *
+     * @param value value
+     * @return value as a single line
+     */
+    private static String toSingleLine(String value) {
+        StringBuilder result = new StringBuilder(value.length());
+        boolean afterLineBreak = false;
+
+        for (int i = 0; i < value.length(); i++) {
+            char character = value.charAt(i);
+            if (LINE_BREAK_CHARACTERS.indexOf(character) >= 0) {
+                afterLineBreak = true;
+            } else if (!afterLineBreak || !Character.isWhitespace(character)) {
+                if (afterLineBreak) {
+                    result.append(' ');
+                    afterLineBreak = false;
+                }
+
+                result.append(character);
+            }
+        }
+
+        return result.toString();
     }
 
     /**
@@ -504,9 +542,9 @@ public class GraphApiClient {
      *
      * @param value resource or null if resource was not found
      * @param requestId Graph API request id
-     * @param body response body
+     * @param body response body as a single line
      */
-    private record GraphApiResponse<T>(T value, String requestId, byte[] body) {
+    private record GraphApiResponse<T>(T value, String requestId, String body) {
     }
 
 }
