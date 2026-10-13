@@ -19,6 +19,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
     private static final String PROVIDER_ID = "graph-api-groups-identity-provider-mapper";
     private static final List<ProviderConfigProperty> configProperties = new ArrayList<>();
     private static final String CONFIG_GRAPH_API_GROUP_MAPPING = "graph-api-group-mapping";
+    private static final String CONFIG_KEEP_GROUPS_WHEN_ALL_WOULD_BE_REMOVED = "keep-groups-when-all-would-be-removed";
 
     static {
         ProviderConfigProperty claimsProperty = new ProviderConfigProperty();
@@ -27,6 +28,14 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
         claimsProperty.setHelpText("Map Azure groups to Keycloak groups");
         claimsProperty.setType(ProviderConfigProperty.MAP_TYPE);
         configProperties.add(claimsProperty);
+
+        ProviderConfigProperty keepGroupsProperty = new ProviderConfigProperty();
+        keepGroupsProperty.setName(CONFIG_KEEP_GROUPS_WHEN_ALL_WOULD_BE_REMOVED);
+        keepGroupsProperty.setLabel("Keep groups when all would be removed");
+        keepGroupsProperty.setHelpText("When a login would remove the user from all managed groups without joining any, keep the user in the groups. Graph API may return an incomplete group list, so this prevents losing all permissions because of it. Removals from some of the groups are always applied. Enabled when not set.");
+        keepGroupsProperty.setType(ProviderConfigProperty.BOOLEAN_TYPE);
+        keepGroupsProperty.setDefaultValue(Boolean.TRUE.toString());
+        configProperties.add(keepGroupsProperty);
     }
 
     public GraphApiGroupsIdentityProviderMapper() {
@@ -121,7 +130,12 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             getGroupPaths(groupTree, leaveUserGroups)
         );
 
-        logMappingResult(user, mapperModel, context, azureGroupNames.size(), mappingResult);
+        boolean keepGroups = mappingResult.removesAllManagedGroups() && isKeepGroupsWhenAllWouldBeRemoved(mapperModel);
+        logMappingResult(user, mapperModel, context, azureGroupNames.size(), mappingResult, keepGroups);
+
+        if (keepGroups) {
+            leaveUserGroups.clear();
+        }
 
         for (GroupModel group : joinUserGroups) {
             logger.info("Joining user to group " + group.getName());
@@ -145,16 +159,17 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
     /**
      * Logs the result of the group mapping for the login.
      *
-     * Warns when the user is removed from all managed groups without joining any, because that happens also when
-     * Graph API returns an incomplete group list.
+     * Warns when the user would be removed from all managed groups without joining any, because that happens also
+     * when Graph API returns an incomplete group list.
      *
      * @param user user
      * @param mapperModel mapper model
      * @param context brokered identity context
      * @param azureGroupCount number of user's Azure groups
      * @param result mapping result
+     * @param keepGroups whether the user is kept in the groups instead of removing them
      */
-    private void logMappingResult(UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context, int azureGroupCount, MappingResult result) {
+    private void logMappingResult(UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context, int azureGroupCount, MappingResult result, boolean keepGroups) {
         String summary = String.format(
             "user=%s, idp=%s, brokerUserId=%s, azureGroups=%d, matchedAzureGroups=%s, managedGroupsBefore=%s, join=%s, leave=%s",
             user.getUsername(),
@@ -167,11 +182,29 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             result.leave()
         );
 
-        if (!result.managedGroupsBefore().isEmpty() && result.leave().size() == result.managedGroupsBefore().size() && result.join().isEmpty()) {
+        if (keepGroups) {
+            logger.warnf("Graph API group mapping would remove user from all managed groups, keeping the groups [%s]", summary);
+        } else if (result.removesAllManagedGroups()) {
             logger.warnf("Graph API group mapping removes user from all managed groups [%s]", summary);
         } else {
             logger.infof("Graph API group mapping [%s]", summary);
         }
+    }
+
+    /**
+     * Returns whether the user is kept in the managed groups when a login would remove the user from all of them.
+     * Enabled when not configured, so that existing mappers get the protection.
+     *
+     * @param mapperModel mapper model
+     * @return whether the user is kept in the managed groups
+     */
+    private boolean isKeepGroupsWhenAllWouldBeRemoved(IdentityProviderMapperModel mapperModel) {
+        Map<String, String> config = mapperModel.getConfig();
+        if (config == null) {
+            return true;
+        }
+
+        return !Boolean.FALSE.toString().equalsIgnoreCase(config.get(CONFIG_KEEP_GROUPS_WHEN_ALL_WOULD_BE_REMOVED));
     }
 
     /**
@@ -259,6 +292,16 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
      * @param leave paths of the groups the user leaves
      */
     private record MappingResult(List<String> matchedAzureGroups, List<String> managedGroupsBefore, List<String> join, List<String> leave) {
+
+        /**
+         * Returns whether the user is removed from all managed groups the user belonged to without joining any
+         *
+         * @return whether the user is removed from all managed groups
+         */
+        boolean removesAllManagedGroups() {
+            return !managedGroupsBefore.isEmpty() && leave.size() == managedGroupsBefore.size() && join.isEmpty();
+        }
+
     }
 
 }

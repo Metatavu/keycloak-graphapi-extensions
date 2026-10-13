@@ -138,6 +138,26 @@ class GraphApiGroupsIdentityProviderMapperTest {
     }
 
     @Test
+    void updateBrokeredUserKeepsGroupsWhenAllWouldBeRemoved() throws IOException {
+        GroupModel financeGroup = group("g-finance", "Finance Members");
+        GroupModel salesGroup = group("g-sales", "Sales Members");
+        UserModel user = updateBrokeredUserWithoutMappedAzureGroups(null, financeGroup, salesGroup);
+
+        verify(user, never()).leaveGroup(any());
+        verify(user, never()).joinGroup(any());
+    }
+
+    @Test
+    void updateBrokeredUserRemovesAllGroupsWhenKeepingIsDisabled() throws IOException {
+        GroupModel financeGroup = group("g-finance", "Finance Members");
+        GroupModel salesGroup = group("g-sales", "Sales Members");
+        UserModel user = updateBrokeredUserWithoutMappedAzureGroups(Map.of("keep-groups-when-all-would-be-removed", "false"), financeGroup, salesGroup);
+
+        verify(user, times(1)).leaveGroup(financeGroup);
+        verify(user, times(1)).leaveGroup(salesGroup);
+    }
+
+    @Test
     void importNewUserSkipsWhenBrokerTokenIsMissing() {
         GraphApiClient graphApiClient = mock(GraphApiClient.class);
         GraphApiGroupsIdentityProviderMapper mapper = new TestableGraphApiGroupsIdentityProviderMapper(graphApiClient);
@@ -154,6 +174,50 @@ class GraphApiGroupsIdentityProviderMapperTest {
 
         verify(user, never()).joinGroup(any());
         verify(user, never()).leaveGroup(any());
+    }
+
+    /**
+     * Runs the mapper for a user who belongs to the given managed groups, when Graph API returns only an unmapped group
+     *
+     * @param config mapper configuration or null if not configured
+     * @param userGroups managed groups the user belongs to
+     * @return user
+     */
+    private static UserModel updateBrokeredUserWithoutMappedAzureGroups(Map<String, String> config, GroupModel... userGroups) throws IOException {
+        GraphApiClient graphApiClient = mock(GraphApiClient.class);
+        GraphApiGroupsIdentityProviderMapper mapper = new TestableGraphApiGroupsIdentityProviderMapper(graphApiClient);
+
+        KeycloakSession session = mock(KeycloakSession.class);
+        KeycloakContext keycloakContext = mock(KeycloakContext.class);
+        AuthenticationSessionModel authSession = mock(AuthenticationSessionModel.class);
+        when(session.getContext()).thenReturn(keycloakContext);
+        when(keycloakContext.getAuthenticationSession()).thenReturn(authSession);
+
+        RealmModel realm = mock(RealmModel.class);
+        when(realm.getGroupsStream()).thenReturn(Stream.of(userGroups));
+
+        UserModel user = mock(UserModel.class);
+        when(user.getId()).thenReturn("user-1");
+        when(user.getGroupsStream()).thenReturn(Stream.of(userGroups));
+
+        IdentityProviderMapperModel mapperModel = mock(IdentityProviderMapperModel.class);
+        when(mapperModel.getConfig()).thenReturn(config);
+        when(mapperModel.getConfigMap("graph-api-group-mapping")).thenReturn(Map.of(
+            "Finance Group", List.of("Finance Members"),
+            "Sales Group", List.of("Sales Members")
+        ));
+
+        BrokeredIdentityContext brokeredIdentityContext = mock(BrokeredIdentityContext.class);
+        when(brokeredIdentityContext.getToken()).thenReturn("{\"token\":\"broker-token\"}");
+        when(brokeredIdentityContext.getAuthenticationSession()).thenReturn(authSession);
+
+        TransitiveMemberOfGroupsResponse groupsResponse = new TransitiveMemberOfGroupsResponse();
+        groupsResponse.setValue(List.of(groupResponse("All Staff")));
+        when(graphApiClient.getTransitiveMemberOfGroups(any())).thenReturn(groupsResponse);
+
+        mapper.updateBrokeredUser(session, realm, user, mapperModel, brokeredIdentityContext);
+
+        return user;
     }
 
     private static GroupModel group(String id, String name) {
