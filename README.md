@@ -34,6 +34,19 @@ If Graph API request fails or times out, login continues and the existing user d
 
 The Graph API Groups mapper maps Azure groups to Keycloak groups by Azure group display name. A mapping key can be either the display name as is (`Finance Group`) or URL-encoded (`Finance+Group`). Versions up to 1.1.5 matched only the plain display name and versions 1.1.6 – 1.2.0 only the URL-encoded one; from 1.2.1 both work, so mappings configured for any earlier version keep working.
 
+## Diagnostic logging
+
+On every login where the user's groups are fetched, the extension logs:
+
+| Level | Message | Content |
+|---|---|---|
+| INFO | `Graph API user groups [...]` | Identity provider, brokered user, Entra tenant id (`tid`), object id (`oid`) and scopes (`scp`) of the access token, Graph API `request-id`, number of groups received, filtered locally (Microsoft 365 and Teams groups), without a display name and used for mapping, `@odata.count` and whether there are more pages |
+| WARN | `Graph API user groups may be incomplete [reasons=...]` | Same as above and the Graph API response body (max 20 000 characters). Logged when there are no groups (`no-groups`), groups without a display name (`groups-without-display-name`) or more groups than received (`more-groups-available`) |
+| INFO | `Graph API group mapping [...]` | Keycloak user, identity provider, matched Azure groups, managed groups before the login, and groups joined and left |
+| WARN | `Graph API group mapping removes user from all managed groups [...]` | Same as above, when the user is removed from all managed groups without joining any |
+
+Failed Graph API requests are logged as ERROR with the identity provider, user, HTTP status, `request-id` and the error response body. The access token itself is never logged. Microsoft support can trace a request with its `request-id`.
+
 ## License
 
 [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)

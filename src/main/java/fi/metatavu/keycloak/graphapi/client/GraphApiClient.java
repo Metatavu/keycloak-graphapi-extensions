@@ -15,6 +15,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,9 @@ public class GraphApiClient {
         "userPrincipalName"
     );
 
+    private static final String REQUEST_ID_HEADER = "request-id";
+    private static final int MAX_ERROR_BODY_LENGTH = 2000;
+
     private static final Duration CONNECT_TIMEOUT = getTimeout("GRAPH_API_CONNECT_TIMEOUT_SECONDS", Duration.ofSeconds(5));
     private static final Duration REQUEST_TIMEOUT = getTimeout("GRAPH_API_REQUEST_TIMEOUT_SECONDS", Duration.ofSeconds(15));
 
@@ -68,11 +72,9 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroups(AccessTokenResponse accessToken) throws IOException {
-        TransitiveMemberOfGroupsResponse response = getGraphApiResource(
+        TransitiveMemberOfGroupsResponse response = getTransitiveMemberOfGroupsResource(
             accessToken,
-            "me/transitiveMemberOf/microsoft.graph.group" + FILTERED_GROUPS_QUERY_SUFFIX,
-            TransitiveMemberOfGroupsResponse.class,
-            Map.of(CONSISTENCY_LEVEL_HEADER, "eventual")
+            "me/transitiveMemberOf/microsoft.graph.group" + FILTERED_GROUPS_QUERY_SUFFIX
         );
 
         return excludeUnifiedAndTeamsGroups(response, "me/transitiveMemberOf");
@@ -87,14 +89,37 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails
      */
     public TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroupsForUser(AccessTokenResponse accessToken, String userId) throws IOException {
-        TransitiveMemberOfGroupsResponse response = getGraphApiResource(
+        TransitiveMemberOfGroupsResponse response = getTransitiveMemberOfGroupsResource(
             accessToken,
-            String.format("users/%s/transitiveMemberOf/microsoft.graph.group%s", userId, FILTERED_GROUPS_QUERY_SUFFIX),
+            String.format("users/%s/transitiveMemberOf/microsoft.graph.group%s", userId, FILTERED_GROUPS_QUERY_SUFFIX)
+        );
+
+        return excludeUnifiedAndTeamsGroups(response, String.format("users/%s/transitiveMemberOf", userId));
+    }
+
+    /**
+     * Fetches group membership resource and attaches Graph API request id and response body to it for diagnostics
+     *
+     * @param accessToken access token
+     * @param path API path
+     * @return group membership response or null if resource was not found
+     * @throws IOException thrown when request fails
+     */
+    private TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroupsResource(AccessTokenResponse accessToken, String path) throws IOException {
+        GraphApiResponse<TransitiveMemberOfGroupsResponse> graphApiResponse = executeGraphApiRequest(
+            accessToken,
+            path,
             TransitiveMemberOfGroupsResponse.class,
             Map.of(CONSISTENCY_LEVEL_HEADER, "eventual")
         );
 
-        return excludeUnifiedAndTeamsGroups(response, String.format("users/%s/transitiveMemberOf", userId));
+        TransitiveMemberOfGroupsResponse response = graphApiResponse.value();
+        if (response != null) {
+            response.setRequestId(graphApiResponse.requestId());
+            response.setRawBody(new String(graphApiResponse.body(), StandardCharsets.UTF_8));
+        }
+
+        return response;
     }
 
     /**
@@ -105,6 +130,8 @@ public class GraphApiClient {
         if (response == null || response.getValue() == null) {
             return response;
         }
+
+        response.setReceivedCount(response.getValue().size());
 
         List<TransitiveMemberOfGroup> filteredGroups = response.getValue()
             .stream()
@@ -320,6 +347,23 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails or times out
      */
     private <T> T getGraphApiResource(AccessTokenResponse accessToken, String path, Class<T> clazz, Map<String, String> headers) throws IOException {
+        return executeGraphApiRequest(accessToken, path, clazz, headers).value();
+    }
+
+    /**
+     * Executes a request to the Microsoft Graph API.
+     *
+     * Request timeout covers the whole exchange including reading the response body, because
+     * HttpRequest timeout alone covers only receiving the response headers.
+     *
+     * @param accessToken access token
+     * @param path API path
+     * @param clazz target class
+     * @param headers extra HTTP headers
+     * @return response containing the resource, Graph API request id and response body
+     * @throws IOException thrown when request fails or times out
+     */
+    private <T> GraphApiResponse<T> executeGraphApiRequest(AccessTokenResponse accessToken, String path, Class<T> clazz, Map<String, String> headers) throws IOException {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(String.format("%s/%s", getGraphApiUrl(), path)))
                 .header("Authorization", "Bearer " + accessToken.getToken())
@@ -332,7 +376,7 @@ public class GraphApiClient {
         CompletableFuture<HttpResponse<byte[]>> responseFuture = HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray());
         try {
             HttpResponse<byte[]> response = responseFuture.get(REQUEST_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            return handleResponse(response, clazz);
+            return new GraphApiResponse<>(handleResponse(response, path, clazz), getRequestId(response), response.body());
         } catch (TimeoutException e) {
             responseFuture.cancel(true);
             throw new HttpTimeoutException(String.format("Request to %s timed out", path));
@@ -353,11 +397,12 @@ public class GraphApiClient {
      * Handles the HTTP response from the Microsoft Graph API.
      *
      * @param response HTTP response
+     * @param path API path
      * @param clazz target class
      * @return resource
      * @throws IOException thrown when response handling fails
      */
-    private <T> T handleResponse(HttpResponse<byte[]> response, Class<T> clazz) throws IOException {
+    private <T> T handleResponse(HttpResponse<byte[]> response, String path, Class<T> clazz) throws IOException {
         int statusCode = response.statusCode();
 
         if (statusCode == 200) {
@@ -365,8 +410,39 @@ public class GraphApiClient {
         } else if (statusCode == 404) {
             return null;
         } else {
-            throw new IOException(String.format("Failed to execute: %s", statusCode));
+            throw new IOException(String.format(
+                "Failed to execute: %s [path=%s, requestId=%s, body=%s]",
+                statusCode,
+                path,
+                getRequestId(response),
+                truncate(new String(response.body(), StandardCharsets.UTF_8), MAX_ERROR_BODY_LENGTH)
+            ));
         }
+    }
+
+    /**
+     * Returns Graph API request id from the response headers
+     *
+     * @param response HTTP response
+     * @return Graph API request id or null if header is missing
+     */
+    private String getRequestId(HttpResponse<?> response) {
+        return response.headers().firstValue(REQUEST_ID_HEADER).orElse(null);
+    }
+
+    /**
+     * Truncates a value to the maximum length
+     *
+     * @param value value
+     * @param maxLength maximum length
+     * @return truncated value
+     */
+    private static String truncate(String value, int maxLength) {
+        if (value.length() <= maxLength) {
+            return value;
+        }
+
+        return value.substring(0, maxLength) + "...(truncated)";
     }
 
     /**
@@ -421,6 +497,16 @@ public class GraphApiClient {
         }
 
         return "https://graph.microsoft.com/v1.0";
+    }
+
+    /**
+     * Graph API response
+     *
+     * @param value resource or null if resource was not found
+     * @param requestId Graph API request id
+     * @param body response body
+     */
+    private record GraphApiResponse<T>(T value, String requestId, byte[] body) {
     }
 
 }

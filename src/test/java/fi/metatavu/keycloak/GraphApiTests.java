@@ -278,6 +278,74 @@ public class GraphApiTests extends AbstractSeleniumTest {
     }
 
     @Test
+    void testGroupsDiagnosticLogging() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
+        try {
+            int logOffset = keycloakContainer.getLogs().length();
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            // Every login logs a summary of the received groups and the mapping result. Default mock contains a group
+            // without display name, so the response is logged as well
+            String logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "Graph API user groups [idp=oidc, ");
+            assertLogContains(logs, "received=6, filteredLocally=2, withoutDisplayName=1, groups=3, odataCount=null, nextPage=false");
+            assertLogContains(logs, "Graph API user groups may be incomplete [reasons=groups-without-display-name, ");
+            assertLogContains(logs, "Graph API group mapping [user=test1, idp=oidc, ");
+
+            // Graph API returns no groups for the user
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+                .atPriority(1)
+                .willReturn(WireMock.okJson("{\"@odata.count\":0,\"value\":[]}").withHeader("request-id", "request-no-groups")));
+
+            logOffset = keycloakContainer.getLogs().length();
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "Graph API user groups may be incomplete [reasons=no-groups, ");
+            assertLogContains(logs, "requestId=request-no-groups, received=0, filteredLocally=0, withoutDisplayName=0, groups=0, odataCount=0, nextPage=false");
+            assertLogContains(logs, "response: {\"@odata.count\":0,\"value\":[]}");
+            assertLogContains(logs, "Graph API group mapping removes user from all managed groups [user=test1, idp=oidc, ");
+
+            // Graph API returns only part of the groups
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+                .atPriority(1)
+                .willReturn(WireMock.okJson("{\"@odata.count\":2,\"@odata.nextLink\":\"https://graph.example.com/next\",\"value\":[{\"id\":\"42f8f6a3-ea24-4d4f-a9b6-9284cf32ce15\",\"displayName\":\"Finance Group\"}]}")));
+
+            logOffset = keycloakContainer.getLogs().length();
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "Graph API user groups may be incomplete [reasons=more-groups-available, ");
+            assertLogContains(logs, "received=1, filteredLocally=0, withoutDisplayName=0, groups=1, odataCount=2, nextPage=true");
+
+            // Graph API denies the request
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+                .atPriority(1)
+                .willReturn(WireMock.aResponse()
+                    .withStatus(403)
+                    .withHeader("request-id", "request-denied")
+                    .withBody("{\"error\":{\"code\":\"Authorization_RequestDenied\",\"message\":\"Insufficient privileges to complete the operation.\"}}")));
+
+            logOffset = keycloakContainer.getLogs().length();
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "Failed to get Graph API resource graph-api-user-group-display-names [idp=oidc, ");
+            assertLogContains(logs, "Failed to execute: 403 [path=me/transitiveMemberOf/microsoft.graph.group?");
+            assertLogContains(logs, "requestId=request-denied, body={\"error\":{\"code\":\"Authorization_RequestDenied\"");
+        } finally {
+            driver.quit();
+        }
+    }
+
+    @Test
     void testGraphApiErrors() {
         RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
         try {
@@ -463,6 +531,16 @@ public class GraphApiTests extends AbstractSeleniumTest {
         }
 
         return adminClient;
+    }
+
+    /**
+     * Asserts that Keycloak logs contain the expected text
+     *
+     * @param logs Keycloak logs
+     * @param expected expected text
+     */
+    private void assertLogContains(String logs, String expected) {
+        assertTrue(logs.contains(expected), String.format("Expected Keycloak logs to contain: %s%nLogs:%n%s", expected, logs));
     }
 
     /**

@@ -81,6 +81,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             .toList();
 
         ArrayList<GroupModel> joinUserGroups = new ArrayList<>();
+        List<String> matchedAzureGroupNames = new ArrayList<>();
 
         if (logger.isDebugEnabled()) {
             logger.debugf("User's Azure groups: %s", String.join(", ", azureGroupNames));
@@ -91,6 +92,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
 
             List<String> keycloakGroups = getMappedKeycloakGroups(groupMappings, azureGroupName);
             if (!keycloakGroups.isEmpty()) {
+                matchedAzureGroupNames.add(azureGroupName);
                 for (String keycloakGroup : keycloakGroups) {
                     if (previousGroupNames.contains(keycloakGroup)) {
                         logger.debugf("Not removing user from group %s", keycloakGroup);
@@ -112,6 +114,8 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             }
         }
 
+        logMappingResult(user, mapperModel, context, azureGroupNames, matchedAzureGroupNames, previousGroupNames, joinUserGroups, leaveUserGroups, groupTree);
+
         for (GroupModel group : joinUserGroups) {
             logger.info("Joining user to group " + group.getName());
 
@@ -128,6 +132,42 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             String authNoteId = "USER_LEAVING_GROUP_" + groupId;
             session.getContext().getAuthenticationSession().setAuthNote(authNoteId, user.getId());
             user.leaveGroup(group);
+        }
+    }
+
+    /**
+     * Logs the result of the group mapping for the login.
+     *
+     * Warns when the user is removed from all managed groups without joining any, because that happens also when
+     * Graph API returns an incomplete group list.
+     */
+    private void logMappingResult(
+        UserModel user,
+        IdentityProviderMapperModel mapperModel,
+        BrokeredIdentityContext context,
+        List<String> azureGroupNames,
+        List<String> matchedAzureGroupNames,
+        List<String> previousGroupNames,
+        List<GroupModel> joinUserGroups,
+        List<GroupModel> leaveUserGroups,
+        Map<String, GroupModel> groupTree
+    ) {
+        String summary = String.format(
+            "user=%s, idp=%s, brokerUserId=%s, azureGroups=%d, matchedAzureGroups=%s, managedGroupsBefore=%s, join=%s, leave=%s",
+            user.getUsername(),
+            mapperModel.getIdentityProviderAlias(),
+            context.getId(),
+            azureGroupNames.size(),
+            matchedAzureGroupNames,
+            previousGroupNames,
+            joinUserGroups.stream().map(group -> getGroupPath(groupTree, group.getId())).toList(),
+            leaveUserGroups.stream().map(group -> getGroupPath(groupTree, group.getId())).toList()
+        );
+
+        if (!previousGroupNames.isEmpty() && leaveUserGroups.size() == previousGroupNames.size() && joinUserGroups.isEmpty()) {
+            logger.warnf("Graph API group mapping removes user from all managed groups [%s]", summary);
+        } else {
+            logger.infof("Graph API group mapping [%s]", summary);
         }
     }
 

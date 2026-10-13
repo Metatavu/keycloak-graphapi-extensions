@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak.graphapi;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import fi.metatavu.keycloak.graphapi.client.GraphApiClient;
 import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
@@ -8,6 +9,7 @@ import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroupsRespon
 import fi.metatavu.keycloak.graphapi.model.GraphUser;
 import org.jboss.logging.Logger;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
+import org.keycloak.models.IdentityProviderModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.AccessTokenResponse;
@@ -17,6 +19,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +35,7 @@ final class GraphApiMapperUtils {
 
     private static final String UNAVAILABLE_NOTE = "unavailable";
     private static final String USER_GROUP_DISPLAY_NAMES_NOTE = "graph-api-user-group-display-names";
+    private static final int MAX_LOGGED_RESPONSE_LENGTH = 20000;
 
     private GraphApiMapperUtils() {
     }
@@ -96,13 +100,133 @@ final class GraphApiMapperUtils {
         String[] displayNames = fetchCached(context, logger, USER_GROUP_DISPLAY_NAMES_NOTE, String[].class, accessToken -> {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(accessToken);
             if (response == null || response.getValue() == null) {
+                logger.warnf("Graph API user groups not found [%s]", describeLogin(context, accessToken));
                 return null;
             }
 
-            return toGroupDisplayNames(response.getValue()).toArray(String[]::new);
+            List<String> groupDisplayNames = toGroupDisplayNames(response.getValue());
+            logUserGroupsResponse(context, accessToken, response, groupDisplayNames, logger);
+            return groupDisplayNames.toArray(String[]::new);
         });
 
         return displayNames == null ? null : List.of(displayNames);
+    }
+
+    /**
+     * Logs a summary of the user groups received from Graph API.
+     *
+     * Response body is logged as well when the groups may not be complete: no groups, groups without a display name
+     * or more groups available than received. This allows finding out afterwards whether Graph API returned no groups
+     * or groups with partial data.
+     */
+    static void logUserGroupsResponse(BrokeredIdentityContext context, AccessTokenResponse accessToken, TransitiveMemberOfGroupsResponse response, List<String> groupDisplayNames, Logger logger) {
+        int groupCount = response.getValue().size();
+        Integer receivedCount = response.getReceivedCount();
+        Integer odataCount = response.getOdataCount();
+        boolean hasNextPage = response.getOdataNextLink() != null;
+
+        String summary = String.format(
+            "%s, requestId=%s, received=%s, filteredLocally=%s, withoutDisplayName=%d, groups=%d, odataCount=%s, nextPage=%s",
+            describeLogin(context, accessToken),
+            response.getRequestId(),
+            receivedCount,
+            receivedCount == null ? null : receivedCount - groupCount,
+            groupCount - groupDisplayNames.size(),
+            groupDisplayNames.size(),
+            odataCount,
+            hasNextPage
+        );
+
+        logger.infof("Graph API user groups [%s]", summary);
+
+        List<String> reasons = new ArrayList<>();
+        if (groupDisplayNames.isEmpty()) {
+            reasons.add("no-groups");
+        }
+
+        if (groupDisplayNames.size() < groupCount) {
+            reasons.add("groups-without-display-name");
+        }
+
+        if (hasNextPage || (odataCount != null && receivedCount != null && odataCount > receivedCount)) {
+            reasons.add("more-groups-available");
+        }
+
+        if (!reasons.isEmpty()) {
+            logger.warnf(
+                "Graph API user groups may be incomplete [reasons=%s, %s], response: %s",
+                String.join(",", reasons),
+                summary,
+                truncate(toSingleLine(response.getRawBody()), MAX_LOGGED_RESPONSE_LENGTH)
+            );
+        }
+    }
+
+    /**
+     * Describes the login for diagnostic logging: identity provider, brokered user and the Entra tenant, object id
+     * and scopes of the access token. The token itself is never logged.
+     */
+    static String describeLogin(BrokeredIdentityContext context, AccessTokenResponse accessToken) {
+        IdentityProviderModel identityProvider = context.getIdpConfig();
+        Map<String, Object> claims = getAccessTokenClaims(accessToken);
+
+        return String.format(
+            "idp=%s, brokerUserId=%s, brokerUsername=%s, tenantId=%s, objectId=%s, scopes=%s",
+            identityProvider == null ? null : identityProvider.getAlias(),
+            context.getId(),
+            context.getUsername(),
+            claims.get("tid"),
+            claims.get("oid"),
+            claims.get("scp")
+        );
+    }
+
+    /**
+     * Returns claims of the access token.
+     *
+     * Claims are read only for diagnostic logging and the token signature is not verified.
+     *
+     * @return claims or empty map if token is missing or it could not be read
+     */
+    static Map<String, Object> getAccessTokenClaims(AccessTokenResponse accessToken) {
+        if (accessToken == null || accessToken.getToken() == null) {
+            return Map.of();
+        }
+
+        String[] parts = accessToken.getToken().split("\\.");
+        if (parts.length < 2) {
+            return Map.of();
+        }
+
+        try {
+            byte[] payload = Base64.getUrlDecoder().decode(parts[1]);
+            return new ObjectMapper().readValue(payload, new TypeReference<Map<String, Object>>() {});
+        } catch (IOException | IllegalArgumentException e) {
+            return Map.of();
+        }
+    }
+
+    /**
+     * Removes line breaks and indentation from a JSON value, so that it is logged as a single line. JSON strings
+     * cannot contain line breaks, so the value itself does not change.
+     */
+    private static String toSingleLine(String json) {
+        if (json == null) {
+            return null;
+        }
+
+        return json.replaceAll("\\s*\\R\\s*", "");
+    }
+
+    /**
+     * Truncates a value to the maximum length.
+     */
+    private static String truncate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+
+        return value.substring(0, maxLength) + "...(truncated)";
     }
 
     /**
@@ -178,14 +302,14 @@ final class GraphApiMapperUtils {
     private static <T> T requestGraphResource(BrokeredIdentityContext context, Logger logger, String resourceName, GraphResourceFetcher<T> fetcher) {
         AccessTokenResponse brokerToken = parseBrokerToken(context, logger);
         if (brokerToken == null) {
-            logger.warnf("Broker token is null, cannot retrieve Graph API resource %s", resourceName);
+            logger.warnf("Broker token is null, cannot retrieve Graph API resource %s [%s]", resourceName, describeLogin(context, null));
             return null;
         }
 
         try {
             return fetcher.fetch(brokerToken);
         } catch (IOException e) {
-            logger.errorf(e, "Failed to get Graph API resource %s", resourceName);
+            logger.errorf(e, "Failed to get Graph API resource %s [%s]", resourceName, describeLogin(context, brokerToken));
             return null;
         }
     }
