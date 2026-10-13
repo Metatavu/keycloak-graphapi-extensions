@@ -21,7 +21,6 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -51,7 +50,7 @@ class GraphApiGroupsIdentityProviderMapperTest {
         when(user.getGroupsStream()).thenReturn(Stream.of(obsoleteGroup));
 
         IdentityProviderMapperModel mapperModel = mock(IdentityProviderMapperModel.class);
-        when(mapperModel.getConfigMap(eq("graph-api-group-mapping"))).thenReturn(Map.of(
+        when(mapperModel.getConfigMap("graph-api-group-mapping")).thenReturn(Map.of(
             "Finance+Group", List.of("Finance Members"),
             "Legacy+Group", List.of("Legacy Members")
         ));
@@ -98,7 +97,7 @@ class GraphApiGroupsIdentityProviderMapperTest {
 
         // Plain keys are used by mappings configured for version 1.0.7 and URL-encoded keys by later versions
         IdentityProviderMapperModel mapperModel = mock(IdentityProviderMapperModel.class);
-        when(mapperModel.getConfigMap(eq("graph-api-group-mapping"))).thenReturn(Map.of(
+        when(mapperModel.getConfigMap("graph-api-group-mapping")).thenReturn(Map.of(
             "Ylläpitäjät Öljytiimi", List.of("parent/Pääkäyttäjät"),
             "support_team", List.of("parent/Support"),
             "Finance Group", List.of("Finance Members"),

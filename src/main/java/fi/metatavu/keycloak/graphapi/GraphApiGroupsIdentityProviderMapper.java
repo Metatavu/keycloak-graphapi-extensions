@@ -81,6 +81,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             .toList();
 
         ArrayList<GroupModel> joinUserGroups = new ArrayList<>();
+        List<String> matchedAzureGroupNames = new ArrayList<>();
 
         if (logger.isDebugEnabled()) {
             logger.debugf("User's Azure groups: %s", String.join(", ", azureGroupNames));
@@ -91,6 +92,7 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
 
             List<String> keycloakGroups = getMappedKeycloakGroups(groupMappings, azureGroupName);
             if (!keycloakGroups.isEmpty()) {
+                matchedAzureGroupNames.add(azureGroupName);
                 for (String keycloakGroup : keycloakGroups) {
                     if (previousGroupNames.contains(keycloakGroup)) {
                         logger.debugf("Not removing user from group %s", keycloakGroup);
@@ -112,6 +114,15 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             }
         }
 
+        MappingResult mappingResult = new MappingResult(
+            matchedAzureGroupNames,
+            previousGroupNames,
+            getGroupPaths(groupTree, joinUserGroups),
+            getGroupPaths(groupTree, leaveUserGroups)
+        );
+
+        logMappingResult(user, mapperModel, context, azureGroupNames.size(), mappingResult);
+
         for (GroupModel group : joinUserGroups) {
             logger.info("Joining user to group " + group.getName());
 
@@ -129,6 +140,51 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
             session.getContext().getAuthenticationSession().setAuthNote(authNoteId, user.getId());
             user.leaveGroup(group);
         }
+    }
+
+    /**
+     * Logs the result of the group mapping for the login.
+     *
+     * Warns when the user is removed from all managed groups without joining any, because that happens also when
+     * Graph API returns an incomplete group list.
+     *
+     * @param user user
+     * @param mapperModel mapper model
+     * @param context brokered identity context
+     * @param azureGroupCount number of user's Azure groups
+     * @param result mapping result
+     */
+    private void logMappingResult(UserModel user, IdentityProviderMapperModel mapperModel, BrokeredIdentityContext context, int azureGroupCount, MappingResult result) {
+        String summary = String.format(
+            "user=%s, idp=%s, brokerUserId=%s, azureGroups=%d, matchedAzureGroups=%s, managedGroupsBefore=%s, join=%s, leave=%s",
+            user.getUsername(),
+            mapperModel.getIdentityProviderAlias(),
+            context.getId(),
+            azureGroupCount,
+            result.matchedAzureGroups(),
+            result.managedGroupsBefore(),
+            result.join(),
+            result.leave()
+        );
+
+        if (!result.managedGroupsBefore().isEmpty() && result.leave().size() == result.managedGroupsBefore().size() && result.join().isEmpty()) {
+            logger.warnf("Graph API group mapping removes user from all managed groups [%s]", summary);
+        } else {
+            logger.infof("Graph API group mapping [%s]", summary);
+        }
+    }
+
+    /**
+     * Returns paths of groups
+     *
+     * @param groupTree group tree
+     * @param groups groups
+     * @return group paths
+     */
+    private List<String> getGroupPaths(Map<String, GroupModel> groupTree, List<GroupModel> groups) {
+        return groups.stream()
+            .map(group -> getGroupPath(groupTree, group.getId()))
+            .toList();
     }
 
     /**
@@ -192,6 +248,17 @@ public class GraphApiGroupsIdentityProviderMapper extends AbstractGraphApiIdenti
         }
 
         return group.getName();
+    }
+
+    /**
+     * Result of the group mapping for a login
+     *
+     * @param matchedAzureGroups names of the Azure groups that matched the mapping
+     * @param managedGroupsBefore paths of the managed groups the user belonged to before the login
+     * @param join paths of the groups the user joins
+     * @param leave paths of the groups the user leaves
+     */
+    private record MappingResult(List<String> matchedAzureGroups, List<String> managedGroupsBefore, List<String> join, List<String> leave) {
     }
 
 }
