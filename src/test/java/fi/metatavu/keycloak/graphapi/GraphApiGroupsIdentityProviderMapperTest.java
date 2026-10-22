@@ -175,10 +175,12 @@ class GraphApiGroupsIdentityProviderMapperTest {
         when(mapperModel.getConfigMap("graph-api-group-mapping")).thenReturn(Map.of("Finance Group", List.of("Finance Members")));
 
         BrokeredIdentityContext brokeredIdentityContext = mock(BrokeredIdentityContext.class);
+        AuthenticationSessionModel authSession = mock(AuthenticationSessionModel.class);
+        KeycloakSession session = mock(KeycloakSession.class);
         when(brokeredIdentityContext.getToken()).thenReturn(String.format("{\"access_token\":\"%s\"}", jwt("{\"scp\":\"email profile User.Read openid\"}")));
-        when(brokeredIdentityContext.getAuthenticationSession()).thenReturn(mock(AuthenticationSessionModel.class));
+        when(brokeredIdentityContext.getAuthenticationSession()).thenReturn(authSession);
 
-        mapper.updateBrokeredUser(mock(KeycloakSession.class), realm, user, mapperModel, brokeredIdentityContext);
+        mapper.updateBrokeredUser(session, realm, user, mapperModel, brokeredIdentityContext);
 
         verify(graphApiClient, never()).getTransitiveMemberOfGroups(any());
         verify(user, never()).joinGroup(any());
