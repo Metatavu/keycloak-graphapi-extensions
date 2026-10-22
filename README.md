@@ -39,7 +39,9 @@ The Graph API Groups mapper maps Azure groups to Keycloak groups by Azure group 
 
 On every login, the mapper adds the user to the mapped Keycloak groups of the user's Azure groups and removes the user from the other Keycloak groups in the mapping. Keycloak groups that are not in the mapping are not changed.
 
-When a login would remove the user from all mapped Keycloak groups the user belongs to without adding any, the user is kept in the groups instead (setting *Keep groups when all would be removed*, enabled by default and also when not set). Graph API may return an incomplete group list, for example an empty one, and this prevents the user from losing all permissions because of it. Removals from some of the groups are always applied. If a user really is removed from all mapped Azure groups, the Keycloak groups need to be removed manually, or the setting disabled.
+When a login would remove the user from all mapped Keycloak groups the user belongs to without adding any, the user is kept in the groups instead (setting *Keep groups when all would be removed*, enabled by default and also when not set). Graph API may return an incomplete group list, for example an empty one, and this prevents the user from losing all permissions because of it. Removals from some of the groups are always applied.
+
+The group sync is skipped for a login, leaving group memberships and the group names attributes unchanged, when the Graph API access token cannot read group names: its `scp` claim contains none of `GroupMember.Read.All`, `GroupMember.ReadWrite.All`, `Group.Read.All`, `Group.ReadWrite.All`, `Directory.Read.All`, `Directory.ReadWrite.All` or `Directory.AccessAsUser.All`, or Graph API returns the user's groups without any display names. Graph API returns group memberships with ids only in that case, so the groups cannot be mapped. A warning `Graph API group sync skipped [...]` with the reason is logged. If a user really is removed from all mapped Azure groups, the Keycloak groups need to be removed manually, or the setting disabled.
 
 ## Diagnostic logging
 
@@ -50,6 +52,7 @@ On every login where the user's groups are fetched, the extension logs:
 | INFO | `Graph API user groups [...]` | Identity provider, brokered user, Entra tenant id (`tid`), object id (`oid`) and scopes (`scp`) of the access token, Graph API `request-id`, number of groups received, filtered locally (Microsoft 365 and Teams groups), without a display name and used for mapping, `@odata.count` and the number of pages read |
 | WARN | `Graph API user groups may be incomplete [reasons=...]` | Same as above and the Graph API response body (max 20 000 characters). Logged when there are no groups (`no-groups`), groups without a display name (`groups-without-display-name`) or more groups than received (`more-groups-available`) |
 | INFO | `Graph API group mapping [...]` | Keycloak user, identity provider, matched Azure groups, managed groups before the login, and groups joined and left |
+| WARN | `Graph API group sync skipped, group memberships and group names are not changed [reason=...]` | Login details, when the access token cannot read group names (`missing-group-read-permission`) or Graph API returned groups without display names (`groups-without-display-name`) |
 | WARN | `Graph API group mapping would remove user from all managed groups, keeping the groups [...]` | Same as above, when the user would be removed from all managed groups without joining any and is kept in the groups |
 | WARN | `Graph API group mapping removes user from all managed groups [...]` | Same as above, when *Keep groups when all would be removed* is disabled |
 

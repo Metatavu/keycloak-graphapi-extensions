@@ -1,5 +1,6 @@
 package fi.metatavu.keycloak.graphapi;
 
+import fi.metatavu.keycloak.graphapi.client.model.TransitiveMemberOfGroup;
 import org.junit.jupiter.api.Test;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.models.IdentityProviderModel;
@@ -7,9 +8,13 @@ import org.keycloak.representations.AccessTokenResponse;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +59,54 @@ class GraphApiMapperUtilsTest {
         String description = GraphApiMapperUtils.describeLogin(context, accessToken);
 
         assertEquals("idp=entra, brokerUserId=broker-user-1, brokerUsername=user@example.com, tenantId=tenant-1, objectId=object-1, scopes=User.Read", description);
+    }
+
+    @Test
+    void isMissingGroupReadPermissionChecksTokenScopes() {
+        assertTrue(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"email profile User.Read openid\"}")));
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"email Group.Read.All profile User.Read openid\"}")));
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"GroupMember.Read.All\"}")));
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"openid directory.read.all\"}")));
+    }
+
+    @Test
+    void isMissingGroupReadPermissionAcceptsGroupMemberReadWrite() {
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"openid User.Read GroupMember.ReadWrite.All\"}")));
+    }
+
+    @Test
+    void isMissingGroupReadPermissionDoesNotDependOnDefaultLocale() {
+        Locale defaultLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"openid DIRECTORY.READ.ALL\"}")));
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
+    }
+
+    @Test
+    void isMissingGroupReadPermissionIgnoresTokensWithoutScopes() {
+        AccessTokenResponse opaqueToken = new AccessTokenResponse();
+        opaqueToken.setToken("opaque-token");
+
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(null));
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(opaqueToken));
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"tid\":\"tenant-1\"}")));
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":[\"User.Read\"]}")));
+    }
+
+    @Test
+    void hasOnlyGroupsWithoutDisplayNameDetectsGroupsWithIdsOnly() {
+        assertTrue(GraphApiMapperUtils.hasOnlyGroupsWithoutDisplayName(List.of(group(null), group(null))));
+        assertFalse(GraphApiMapperUtils.hasOnlyGroupsWithoutDisplayName(List.of(group(null), group("Finance Group"))));
+        assertFalse(GraphApiMapperUtils.hasOnlyGroupsWithoutDisplayName(List.of()));
+    }
+
+    private static TransitiveMemberOfGroup group(String displayName) {
+        TransitiveMemberOfGroup group = new TransitiveMemberOfGroup();
+        group.setDisplayName(displayName);
+        return group;
     }
 
     private static AccessTokenResponse accessToken(String payload) {

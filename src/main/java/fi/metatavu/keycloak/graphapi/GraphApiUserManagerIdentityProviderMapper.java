@@ -151,10 +151,20 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
             return null;
         }
 
+        if (GraphApiMapperUtils.isMissingGroupReadPermission(brokerToken)) {
+            GraphApiMapperUtils.logGroupSyncSkipped("missing-group-read-permission", "manager groups, " + GraphApiMapperUtils.describeLogin(context, brokerToken), logger);
+            return null;
+        }
+
         GraphApiClient graphApiClient = new GraphApiClient();
         try {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroupsForUser(brokerToken, manager.getId());
             if (response == null || response.getValue() == null) {
+                return null;
+            }
+
+            if (GraphApiMapperUtils.hasOnlyGroupsWithoutDisplayName(response.getValue())) {
+                GraphApiMapperUtils.logGroupSyncSkipped("groups-without-display-name", "manager groups, " + GraphApiMapperUtils.describeLogin(context, brokerToken), logger);
                 return null;
             }
 
