@@ -9,6 +9,7 @@ import org.keycloak.representations.AccessTokenResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -66,6 +67,22 @@ class GraphApiMapperUtilsTest {
         assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"email Group.Read.All profile User.Read openid\"}")));
         assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"GroupMember.Read.All\"}")));
         assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"openid directory.read.all\"}")));
+    }
+
+    @Test
+    void isMissingGroupReadPermissionAcceptsGroupMemberReadWrite() {
+        assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"openid User.Read GroupMember.ReadWrite.All\"}")));
+    }
+
+    @Test
+    void isMissingGroupReadPermissionDoesNotDependOnDefaultLocale() {
+        Locale defaultLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            assertFalse(GraphApiMapperUtils.isMissingGroupReadPermission(accessToken("{\"scp\":\"openid DIRECTORY.READ.ALL\"}")));
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
     }
 
     @Test

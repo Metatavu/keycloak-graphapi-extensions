@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -43,6 +44,7 @@ final class GraphApiMapperUtils {
      */
     private static final Set<String> GROUP_READ_PERMISSIONS = Set.of(
         "groupmember.read.all",
+        "groupmember.readwrite.all",
         "group.read.all",
         "group.readwrite.all",
         "directory.read.all",
@@ -152,7 +154,7 @@ final class GraphApiMapperUtils {
         }
 
         for (String scope : scopes.trim().split("\\s+")) {
-            if (GROUP_READ_PERMISSIONS.contains(scope.toLowerCase())) {
+            if (GROUP_READ_PERMISSIONS.contains(scope.toLowerCase(Locale.ROOT))) {
                 return false;
             }
         }
