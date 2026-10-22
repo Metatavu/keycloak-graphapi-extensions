@@ -29,6 +29,9 @@ public class TransitiveMemberOfGroupsResponse {
     @JsonIgnore
     private String rawBody;
 
+    @JsonIgnore
+    private Integer pageCount;
+
     public List<TransitiveMemberOfGroup> getValue() {
         return value;
     }
@@ -108,6 +111,21 @@ public class TransitiveMemberOfGroupsResponse {
     @JsonIgnore
     public void setRawBody(String rawBody) {
         this.rawBody = rawBody;
+    }
+
+    /**
+     * Returns number of pages read from Graph API
+     *
+     * @return number of pages or null if not known
+     */
+    @JsonIgnore
+    public Integer getPageCount() {
+        return pageCount;
+    }
+
+    @JsonIgnore
+    public void setPageCount(Integer pageCount) {
+        this.pageCount = pageCount;
     }
 
 }

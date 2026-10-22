@@ -17,6 +17,7 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -31,9 +32,12 @@ import java.util.concurrent.TimeoutException;
 public class GraphApiClient {
     private static final Logger logger = Logger.getLogger(GraphApiClient.class);
     private static final String CONSISTENCY_LEVEL_HEADER = "ConsistencyLevel";
+    private static final int GROUPS_PAGE_SIZE = 999;
+    private static final int MAX_GROUPS_PAGES = 20;
     private static final String GROUPS_SELECT_FIELDS = "id,displayName,description,mail,groupTypes,resourceProvisioningOptions";
     private static final String FILTERED_GROUPS_QUERY_SUFFIX = String.format(
-        "?$count=true&$select=%s&$filter=securityEnabled%%20eq%%20true%%20and%%20not(groupTypes/any(c:c%%20eq%%20'Unified'))",
+        "?$count=true&$top=%d&$select=%s&$filter=securityEnabled%%20eq%%20true%%20and%%20not(groupTypes/any(c:c%%20eq%%20'Unified'))",
+        GROUPS_PAGE_SIZE,
         GROUPS_SELECT_FIELDS
     );
     private static final String USER_SELECT_FIELDS = String.join(",",
@@ -99,28 +103,98 @@ public class GraphApiClient {
     }
 
     /**
-     * Fetches group membership resource and attaches Graph API request id and response body to it for diagnostics
+     * Fetches all pages of a group membership resource.
+     *
+     * Graph API returns the groups in pages and links to the next page with @odata.nextLink. All pages are read, so
+     * that groups on later pages are not missed. If any page fails, the whole request fails, so that group memberships
+     * are never changed based on a partial list. Graph API request ids and response bodies of all pages are attached
+     * to the response for diagnostics.
      *
      * @param accessToken access token
-     * @param path API path
-     * @return group membership response or null if resource was not found
-     * @throws IOException thrown when request fails
+     * @param path API path of the first page
+     * @return group membership response containing the groups of all pages or null if resource was not found
+     * @throws IOException thrown when a request fails or the pages cannot be read completely
      */
     private TransitiveMemberOfGroupsResponse getTransitiveMemberOfGroupsResource(AccessTokenResponse accessToken, String path) throws IOException {
-        GraphApiResponse<TransitiveMemberOfGroupsResponse> graphApiResponse = executeGraphApiRequest(
-            accessToken,
-            path,
-            TransitiveMemberOfGroupsResponse.class,
-            Map.of(CONSISTENCY_LEVEL_HEADER, "eventual")
-        );
+        TransitiveMemberOfGroupsResponse result = null;
+        List<TransitiveMemberOfGroup> groups = new ArrayList<>();
+        List<String> requestIds = new ArrayList<>();
+        List<String> bodies = new ArrayList<>();
+        URI pageUri = getGraphApiUri(path);
+        int pageCount = 0;
 
-        TransitiveMemberOfGroupsResponse response = graphApiResponse.value();
-        if (response != null) {
-            response.setRequestId(graphApiResponse.requestId());
-            response.setRawBody(graphApiResponse.body());
+        while (pageUri != null) {
+            if (pageCount >= MAX_GROUPS_PAGES) {
+                throw new IOException(String.format("Too many pages in %s, stopped after %d pages", path, MAX_GROUPS_PAGES));
+            }
+
+            pageCount++;
+            String pageDescription = String.format("%s (page %d)", path, pageCount);
+
+            GraphApiResponse<TransitiveMemberOfGroupsResponse> graphApiResponse = executeGraphApiRequest(
+                accessToken,
+                pageUri,
+                pageDescription,
+                TransitiveMemberOfGroupsResponse.class,
+                Map.of(CONSISTENCY_LEVEL_HEADER, "eventual")
+            );
+
+            TransitiveMemberOfGroupsResponse page = graphApiResponse.value();
+            if (page == null) {
+                if (pageCount == 1) {
+                    return null;
+                }
+
+                throw new IOException(String.format("Failed to read %s: page not found", pageDescription));
+            }
+
+            if (page.getValue() == null) {
+                throw new IOException(String.format("Failed to read %s: response does not contain groups", pageDescription));
+            }
+
+            if (result == null) {
+                result = page;
+            }
+
+            groups.addAll(page.getValue());
+            requestIds.add(graphApiResponse.requestId());
+            bodies.add(graphApiResponse.body());
+            pageUri = getNextPageUri(page.getOdataNextLink(), pageDescription);
         }
 
-        return response;
+        result.setValue(groups);
+        result.setOdataNextLink(null);
+        result.setPageCount(pageCount);
+        result.setRequestId(String.join(",", requestIds));
+        result.setRawBody(String.join(" ", bodies));
+
+        return result;
+    }
+
+    /**
+     * Returns URI of the next page of a Graph API resource.
+     *
+     * Only links to the configured Graph API URL are followed, so that the access token is never sent elsewhere.
+     *
+     * @param nextLink value of @odata.nextLink or null if there are no more pages
+     * @param pageDescription description of the current page for error messages
+     * @return URI of the next page or null if there are no more pages
+     * @throws IOException thrown when the link is not a valid URI or does not point to the configured Graph API URL
+     */
+    private URI getNextPageUri(String nextLink, String pageDescription) throws IOException {
+        if (nextLink == null || nextLink.isBlank()) {
+            return null;
+        }
+
+        if (!nextLink.startsWith(getGraphApiUrl() + "/")) {
+            throw new IOException(String.format("Next page link of %s does not point to Graph API URL %s", pageDescription, getGraphApiUrl()));
+        }
+
+        try {
+            return URI.create(nextLink);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(String.format("Next page link of %s is not a valid URI", pageDescription), e);
+        }
     }
 
     /**
@@ -348,7 +422,7 @@ public class GraphApiClient {
      * @throws IOException thrown when request fails or times out
      */
     private <T> T getGraphApiResource(AccessTokenResponse accessToken, String path, Class<T> clazz, Map<String, String> headers) throws IOException {
-        return executeGraphApiRequest(accessToken, path, clazz, headers).value();
+        return executeGraphApiRequest(accessToken, getGraphApiUri(path), path, clazz, headers).value();
     }
 
     /**
@@ -358,15 +432,16 @@ public class GraphApiClient {
      * HttpRequest timeout alone covers only receiving the response headers.
      *
      * @param accessToken access token
-     * @param path API path
+     * @param uri request URI
+     * @param path API path used in error messages
      * @param clazz target class
      * @param headers extra HTTP headers
      * @return response containing the resource, Graph API request id and response body
      * @throws IOException thrown when request fails or times out
      */
-    private <T> GraphApiResponse<T> executeGraphApiRequest(AccessTokenResponse accessToken, String path, Class<T> clazz, Map<String, String> headers) throws IOException {
+    private <T> GraphApiResponse<T> executeGraphApiRequest(AccessTokenResponse accessToken, URI uri, String path, Class<T> clazz, Map<String, String> headers) throws IOException {
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-                .uri(URI.create(String.format("%s/%s", getGraphApiUrl(), path)))
+                .uri(uri)
                 .header("Authorization", "Bearer " + accessToken.getToken())
                 .timeout(REQUEST_TIMEOUT);
 
@@ -522,6 +597,16 @@ public class GraphApiClient {
 
         logger.warnf("Invalid value '%s' in %s, using default %d seconds", value, variableName, defaultTimeout.toSeconds());
         return defaultTimeout;
+    }
+
+    /**
+     * Returns URI of a Microsoft Graph API path
+     *
+     * @param path API path
+     * @return URI
+     */
+    private URI getGraphApiUri(String path) {
+        return URI.create(getGraphApiUrl() + "/" + path);
     }
 
     /**
