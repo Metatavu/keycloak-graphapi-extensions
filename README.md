@@ -6,6 +6,7 @@ This repository provides custom Keycloak extensions that enable integration with
 
 | Extension version | Built against Keycloak | Tested with Keycloak |
 |---|---|---|
+| 1.2.2 | 26.3.5 | 26.1.5, 26.3.5 |
 | 1.2.1 | 26.3.5 | 26.1.5, 26.3.5 |
 | 1.2.0 | 26.3.5 | 26.1.5, 26.3.5 |
 | 1.0.0 – 1.1.17 | 26.1.2 | 26.1.2 |
