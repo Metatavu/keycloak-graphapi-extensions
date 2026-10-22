@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
@@ -36,6 +37,18 @@ final class GraphApiMapperUtils {
     private static final String UNAVAILABLE_NOTE = "unavailable";
     private static final String USER_GROUP_DISPLAY_NAMES_NOTE = "graph-api-user-group-display-names";
     private static final int MAX_LOGGED_RESPONSE_LENGTH = 20000;
+
+    /**
+     * Delegated Graph API permissions that allow reading the display names of the user's groups
+     */
+    private static final Set<String> GROUP_READ_PERMISSIONS = Set.of(
+        "groupmember.read.all",
+        "group.read.all",
+        "group.readwrite.all",
+        "directory.read.all",
+        "directory.readwrite.all",
+        "directory.accessasuser.all"
+    );
 
     private GraphApiMapperUtils() {
     }
@@ -98,6 +111,11 @@ final class GraphApiMapperUtils {
      */
     static List<String> fetchUserGroupDisplayNames(BrokeredIdentityContext context, GraphApiClient graphApiClient, Logger logger) {
         String[] displayNames = fetchCached(context, logger, USER_GROUP_DISPLAY_NAMES_NOTE, String[].class, accessToken -> {
+            if (isMissingGroupReadPermission(accessToken)) {
+                logGroupSyncSkipped("missing-group-read-permission", describeLogin(context, accessToken), logger);
+                return null;
+            }
+
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroups(accessToken);
             if (response == null || response.getValue() == null) {
                 logger.warnf("Graph API user groups not found [%s]", describeLogin(context, accessToken));
@@ -106,10 +124,63 @@ final class GraphApiMapperUtils {
 
             List<String> groupDisplayNames = toGroupDisplayNames(response.getValue());
             logUserGroupsResponse(context, accessToken, response, groupDisplayNames, logger);
+
+            if (hasOnlyGroupsWithoutDisplayName(response.getValue())) {
+                logGroupSyncSkipped("groups-without-display-name", describeLogin(context, accessToken), logger);
+                return null;
+            }
+
             return groupDisplayNames.toArray(String[]::new);
         });
 
         return displayNames == null ? null : List.of(displayNames);
+    }
+
+    /**
+     * Returns whether the access token is known to lack a permission that allows reading the display names of groups.
+     *
+     * Graph API still returns the user's group memberships without such a permission, but only with group ids, so
+     * the groups cannot be mapped. Only tokens with a readable scp claim are checked; for other tokens the response is
+     * checked instead with {@link #hasOnlyGroupsWithoutDisplayName(List)}.
+     *
+     * @param accessToken access token
+     * @return true when the token has scopes and none of them allows reading groups
+     */
+    static boolean isMissingGroupReadPermission(AccessTokenResponse accessToken) {
+        if (!(getAccessTokenClaims(accessToken).get("scp") instanceof String scopes)) {
+            return false;
+        }
+
+        for (String scope : scopes.trim().split("\\s+")) {
+            if (GROUP_READ_PERMISSIONS.contains(scope.toLowerCase())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Returns whether Graph API returned groups but none of them has a display name. This happens when the access
+     * token lacks permission to read groups.
+     *
+     * @param groups groups from Graph API
+     * @return true when there are groups and none of them has a display name
+     */
+    static boolean hasOnlyGroupsWithoutDisplayName(List<TransitiveMemberOfGroup> groups) {
+        return !groups.isEmpty() && groups.stream().allMatch(group -> group == null || group.getDisplayName() == null);
+    }
+
+    /**
+     * Logs that the group sync is skipped for the login, so that group memberships and group name attributes are
+     * left unchanged.
+     *
+     * @param reason reason for skipping
+     * @param loginDescription description of the login
+     * @param logger logger
+     */
+    static void logGroupSyncSkipped(String reason, String loginDescription, Logger logger) {
+        logger.warnf("Graph API group sync skipped, group memberships and group names are not changed [reason=%s, %s]", reason, loginDescription);
     }
 
     /**

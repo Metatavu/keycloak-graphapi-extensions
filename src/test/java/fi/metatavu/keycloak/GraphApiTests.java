@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Testcontainers
@@ -353,6 +354,38 @@ public class GraphApiTests extends AbstractSeleniumTest {
             assertLogContains(logs, "Failed to execute: 403 [path=me/transitiveMemberOf/microsoft.graph.group?");
             // Multiline error response is logged as a single line
             assertLogContains(logs, "requestId=request-denied, body={ \"error\": { \"code\": \"Authorization_RequestDenied\", \"message\": \"Insufficient privileges to complete the operation.\" } }]");
+        } finally {
+            driver.quit();
+        }
+    }
+
+    @Test
+    void testGroupSyncSkippedWhenGroupsHaveNoDisplayNames() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
+        try {
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+            Set<String> managedGroupsBefore = getManagedGroupPaths();
+            List<String> groupNamesBefore = getTestUserAttribute("azure-ad-user-group-names");
+            assertEquals(Set.of("/finance", "/parent/child"), managedGroupsBefore);
+
+            // Graph API returns the memberships with group ids only, as it does when the token cannot read groups
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+                .atPriority(1)
+                .willReturn(WireMock.okJson("{\"@odata.count\":2,\"value\":[{\"id\":\"42f8f6a3-ea24-4d4f-a9b6-9284cf32ce15\",\"displayName\":null},{\"id\":\"0e8acc8b-58fd-4f66-96f0-8c06191390a8\",\"displayName\":null}]}")));
+
+            int logOffset = keycloakContainer.getLogs().length();
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            // Group memberships and group names are not changed
+            assertEquals(managedGroupsBefore, getManagedGroupPaths());
+            assertEquals(groupNamesBefore, getTestUserAttribute("azure-ad-user-group-names"));
+
+            String logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "Graph API group sync skipped, group memberships and group names are not changed [reason=groups-without-display-name, idp=oidc, ");
+            assertFalse(logs.contains("would remove user from all managed groups"), "Group sync should be skipped before the groups mapper");
         } finally {
             driver.quit();
         }

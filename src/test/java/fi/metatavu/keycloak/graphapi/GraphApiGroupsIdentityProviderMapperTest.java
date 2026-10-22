@@ -14,6 +14,8 @@ import org.keycloak.models.UserModel;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -158,6 +160,32 @@ class GraphApiGroupsIdentityProviderMapperTest {
     }
 
     @Test
+    void updateBrokeredUserSkipsGroupSyncWhenTokenCannotReadGroups() throws IOException {
+        GraphApiClient graphApiClient = mock(GraphApiClient.class);
+        GraphApiGroupsIdentityProviderMapper mapper = new TestableGraphApiGroupsIdentityProviderMapper(graphApiClient);
+
+        GroupModel financeGroup = group("g-finance", "Finance Members");
+        RealmModel realm = mock(RealmModel.class);
+        when(realm.getGroupsStream()).thenReturn(Stream.of(financeGroup));
+
+        UserModel user = mock(UserModel.class);
+        when(user.getGroupsStream()).thenReturn(Stream.of(financeGroup));
+
+        IdentityProviderMapperModel mapperModel = mock(IdentityProviderMapperModel.class);
+        when(mapperModel.getConfigMap("graph-api-group-mapping")).thenReturn(Map.of("Finance Group", List.of("Finance Members")));
+
+        BrokeredIdentityContext brokeredIdentityContext = mock(BrokeredIdentityContext.class);
+        when(brokeredIdentityContext.getToken()).thenReturn(String.format("{\"access_token\":\"%s\"}", jwt("{\"scp\":\"email profile User.Read openid\"}")));
+        when(brokeredIdentityContext.getAuthenticationSession()).thenReturn(mock(AuthenticationSessionModel.class));
+
+        mapper.updateBrokeredUser(mock(KeycloakSession.class), realm, user, mapperModel, brokeredIdentityContext);
+
+        verify(graphApiClient, never()).getTransitiveMemberOfGroups(any());
+        verify(user, never()).joinGroup(any());
+        verify(user, never()).leaveGroup(any());
+    }
+
+    @Test
     void importNewUserSkipsWhenBrokerTokenIsMissing() {
         GraphApiClient graphApiClient = mock(GraphApiClient.class);
         GraphApiGroupsIdentityProviderMapper mapper = new TestableGraphApiGroupsIdentityProviderMapper(graphApiClient);
@@ -218,6 +246,11 @@ class GraphApiGroupsIdentityProviderMapperTest {
         mapper.updateBrokeredUser(session, realm, user, mapperModel, brokeredIdentityContext);
 
         return user;
+    }
+
+    private static String jwt(String payload) {
+        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
+        return encoder.encodeToString("{\"alg\":\"RS256\"}".getBytes(StandardCharsets.UTF_8)) + "." + encoder.encodeToString(payload.getBytes(StandardCharsets.UTF_8)) + ".signature";
     }
 
     private static GroupModel group(String id, String name) {
