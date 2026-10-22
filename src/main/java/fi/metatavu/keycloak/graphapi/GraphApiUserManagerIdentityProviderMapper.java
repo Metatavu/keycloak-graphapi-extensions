@@ -109,6 +109,11 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
 
         if (MANAGER_GROUP_NAMES.equals(graphApiAttribute)) {
             List<String> groupNames = getManagerGroupNames(context, manager);
+            if (groupNames == null) {
+                logger.debug("Could not retrieve manager groups from Graph API, skipping manager group names update");
+                return;
+            }
+
             GraphApiMapperUtils.updateUserAttribute(user, keycloakAttribute, groupNames);
             return;
         }
@@ -127,29 +132,36 @@ public class GraphApiUserManagerIdentityProviderMapper extends AbstractGraphApiI
         return GraphApiMapperUtils.fetchGraphUser(context, logger, MANAGER_AUTH_NOTE, graphApiClient::getManager);
     }
 
+    /**
+     * Returns names of the manager's groups
+     *
+     * @param context brokered identity context
+     * @param manager manager
+     * @return group names or null if groups could not be retrieved
+     */
     private List<String> getManagerGroupNames(BrokeredIdentityContext context, GraphUser manager) {
         AccessTokenResponse brokerToken = GraphApiMapperUtils.parseBrokerToken(context, logger);
         if (brokerToken == null) {
             logger.warn("Broker token is null, cannot retrieve manager groups");
-            return List.of();
+            return null;
         }
 
         if (manager.getId() == null) {
             logger.warn("Manager id is null, cannot retrieve manager groups");
-            return List.of();
+            return null;
         }
 
         GraphApiClient graphApiClient = new GraphApiClient();
         try {
             TransitiveMemberOfGroupsResponse response = graphApiClient.getTransitiveMemberOfGroupsForUser(brokerToken, manager.getId());
             if (response == null || response.getValue() == null) {
-                return List.of();
+                return null;
             }
 
             return GraphApiMapperUtils.toGroupNames(response.getValue());
         } catch (Exception e) {
             logger.error("Failed to get manager groups", e);
-            return List.of();
+            return null;
         }
     }
 }

@@ -179,7 +179,7 @@ public class GraphApiClient {
      * @param nextLink value of @odata.nextLink or null if there are no more pages
      * @param pageDescription description of the current page for error messages
      * @return URI of the next page or null if there are no more pages
-     * @throws IOException thrown when the link does not point to the configured Graph API URL
+     * @throws IOException thrown when the link is not a valid URI or does not point to the configured Graph API URL
      */
     private URI getNextPageUri(String nextLink, String pageDescription) throws IOException {
         if (nextLink == null || nextLink.isBlank()) {
@@ -190,7 +190,11 @@ public class GraphApiClient {
             throw new IOException(String.format("Next page link of %s does not point to Graph API URL %s", pageDescription, getGraphApiUrl()));
         }
 
-        return URI.create(nextLink);
+        try {
+            return URI.create(nextLink);
+        } catch (IllegalArgumentException e) {
+            throw new IOException(String.format("Next page link of %s is not a valid URI", pageDescription), e);
+        }
     }
 
     /**
@@ -602,7 +606,7 @@ public class GraphApiClient {
      * @return URI
      */
     private URI getGraphApiUri(String path) {
-        return URI.create(String.format("%s/%s", getGraphApiUrl(), path));
+        return URI.create(getGraphApiUrl() + "/" + path);
     }
 
     /**

@@ -82,6 +82,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
     private static final String TEST_REALM = "test";
     private static final String TEST_USERNAME = "test1";
     private static final String TRANSITIVE_MEMBER_OF_PATH = "/me/transitiveMemberOf/microsoft.graph.group";
+    private static final String MANAGER_TRANSITIVE_MEMBER_OF_PATH = "/users/24fcbca3-c3e2-48bf-9ffc-c7f81b81483d/transitiveMemberOf/microsoft.graph.group";
     private static final String USER_SELECT_FIELDS = "id,businessPhones,displayName,companyName,department,employeeOrgData,givenName,jobTitle,mail,mobilePhone,officeLocation,preferredLanguage,surname,userPrincipalName";
     private static final Set<String> MANAGED_GROUP_PATHS = Set.of("/finance", "/sales", "/parent/child");
 
@@ -421,6 +422,37 @@ public class GraphApiTests extends AbstractSeleniumTest {
             logs = keycloakContainer.getLogs().substring(logOffset);
             assertLogContains(logs, "does not point to Graph API URL http://wiremock:8080");
             WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH)));
+
+            // Malformed next page link fails the request instead of the login
+            stubTransitiveMemberOfPages(
+                WireMock.okJson(getTransitiveMemberOfPageJson("http://wiremock:8080" + TRANSITIVE_MEMBER_OF_PATH + "?$skiptoken=%ZZ", "Oulu Team")),
+                WireMock.okJson(getTransitiveMemberOfJson("Finance Group"))
+            );
+
+            logOffset = keycloakContainer.getLogs().length();
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            assertEquals(managedGroupsBefore, getManagedGroupPaths());
+            logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "is not a valid URI");
+
+            // Manager groups are kept when a later page of the manager's groups fails
+            List<String> managerGroupsBefore = getTestUserAttribute("azure-ad-manager-group-names");
+            assertEquals(Set.of("Management+Group", "Leadership+Team"), Set.copyOf(managerGroupsBefore));
+
+            stubTransitiveMemberOfPages(
+                MANAGER_TRANSITIVE_MEMBER_OF_PATH,
+                WireMock.okJson(getTransitiveMemberOfPageJson("http://wiremock:8080" + MANAGER_TRANSITIVE_MEMBER_OF_PATH + "?$skiptoken=page-2", "Management Group")),
+                WireMock.serverError()
+            );
+
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            assertEquals(managerGroupsBefore, getTestUserAttribute("azure-ad-manager-group-names"));
         } finally {
             driver.quit();
         }
@@ -631,12 +663,23 @@ public class GraphApiTests extends AbstractSeleniumTest {
      * @param secondPage response of the second page
      */
     private void stubTransitiveMemberOfPages(ResponseDefinitionBuilder firstPage, ResponseDefinitionBuilder secondPage) {
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+        stubTransitiveMemberOfPages(TRANSITIVE_MEMBER_OF_PATH, firstPage, secondPage);
+    }
+
+    /**
+     * Stubs the first and the second page of group memberships
+     *
+     * @param path API path of the group memberships
+     * @param firstPage response of the first page
+     * @param secondPage response of the second page
+     */
+    private void stubTransitiveMemberOfPages(String path, ResponseDefinitionBuilder firstPage, ResponseDefinitionBuilder secondPage) {
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(path))
             .withQueryParam("$skiptoken", WireMock.equalTo("page-2"))
             .atPriority(1)
             .willReturn(secondPage));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(path))
             .withQueryParam("$skiptoken", WireMock.absent())
             .atPriority(2)
             .willReturn(firstPage));
