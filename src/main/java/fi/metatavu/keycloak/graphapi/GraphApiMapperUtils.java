@@ -123,10 +123,9 @@ final class GraphApiMapperUtils {
         int groupCount = response.getValue().size();
         Integer receivedCount = response.getReceivedCount();
         Integer odataCount = response.getOdataCount();
-        boolean hasNextPage = response.getOdataNextLink() != null;
 
         String summary = String.format(
-            "%s, requestId=%s, received=%s, filteredLocally=%s, withoutDisplayName=%d, groups=%d, odataCount=%s, nextPage=%s",
+            "%s, requestId=%s, received=%s, filteredLocally=%s, withoutDisplayName=%d, groups=%d, odataCount=%s, pages=%s",
             describeLogin(context, accessToken),
             response.getRequestId(),
             receivedCount,
@@ -134,7 +133,7 @@ final class GraphApiMapperUtils {
             groupCount - groupDisplayNames.size(),
             groupDisplayNames.size(),
             odataCount,
-            hasNextPage
+            response.getPageCount()
         );
 
         logger.infof("Graph API user groups [%s]", summary);
@@ -148,7 +147,7 @@ final class GraphApiMapperUtils {
             reasons.add("groups-without-display-name");
         }
 
-        if (hasNextPage || (odataCount != null && receivedCount != null && odataCount > receivedCount)) {
+        if (response.getOdataNextLink() != null || (odataCount != null && receivedCount != null && odataCount > receivedCount)) {
             reasons.add("more-groups-available");
         }
 

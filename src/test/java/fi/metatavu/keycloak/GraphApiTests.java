@@ -1,6 +1,7 @@
 package fi.metatavu.keycloak;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
 import org.keycloak.admin.client.Keycloak;
@@ -289,7 +290,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
             // without display name, so the response is logged as well
             String logs = keycloakContainer.getLogs().substring(logOffset);
             assertLogContains(logs, "Graph API user groups [idp=oidc, ");
-            assertLogContains(logs, "received=6, filteredLocally=2, withoutDisplayName=1, groups=3, odataCount=null, nextPage=false");
+            assertLogContains(logs, "received=6, filteredLocally=2, withoutDisplayName=1, groups=3, odataCount=null, pages=1");
             assertLogContains(logs, "Graph API user groups may be incomplete [reasons=groups-without-display-name, ");
             assertLogContains(logs, "response: { \"value\": [ { \"id\": \"42f8f6a3-ea24-4d4f-a9b6-9284cf32ce15\", \"displayName\": \"Finance Group\", ");
             assertLogContains(logs, "Graph API group mapping [user=test1, idp=oidc, ");
@@ -309,17 +310,17 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
             logs = keycloakContainer.getLogs().substring(logOffset);
             assertLogContains(logs, "Graph API user groups may be incomplete [reasons=no-groups, ");
-            assertLogContains(logs, "requestId=request-no-groups, received=0, filteredLocally=0, withoutDisplayName=0, groups=0, odataCount=0, nextPage=false");
+            assertLogContains(logs, "requestId=request-no-groups, received=0, filteredLocally=0, withoutDisplayName=0, groups=0, odataCount=0, pages=1");
             assertLogContains(logs, "response: {\"@odata.count\":0,\"value\":[]}");
             assertLogContains(logs, "Graph API group mapping would remove user from all managed groups, keeping the groups [user=test1, idp=oidc, ");
 
             // User is kept in the groups instead of removing all of them
             assertEquals(managedGroupsBefore, getManagedGroupPaths());
 
-            // Graph API returns only part of the groups
+            // Graph API reports more groups than it returns
             WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
                 .atPriority(1)
-                .willReturn(WireMock.okJson("{\"@odata.count\":2,\"@odata.nextLink\":\"https://graph.example.com/next\",\"value\":[{\"id\":\"42f8f6a3-ea24-4d4f-a9b6-9284cf32ce15\",\"displayName\":\"Finance Group\"}]}")));
+                .willReturn(WireMock.okJson("{\"@odata.count\":2,\"value\":[{\"id\":\"42f8f6a3-ea24-4d4f-a9b6-9284cf32ce15\",\"displayName\":\"Finance Group\"}]}")));
 
             logOffset = keycloakContainer.getLogs().length();
             logout(driver);
@@ -328,7 +329,7 @@ public class GraphApiTests extends AbstractSeleniumTest {
 
             logs = keycloakContainer.getLogs().substring(logOffset);
             assertLogContains(logs, "Graph API user groups may be incomplete [reasons=more-groups-available, ");
-            assertLogContains(logs, "received=1, filteredLocally=0, withoutDisplayName=0, groups=1, odataCount=2, nextPage=true");
+            assertLogContains(logs, "received=1, filteredLocally=0, withoutDisplayName=0, groups=1, odataCount=2, pages=1");
 
             // Removal from some of the groups is applied
             assertEquals(Set.of("/finance"), getManagedGroupPaths());
@@ -351,6 +352,75 @@ public class GraphApiTests extends AbstractSeleniumTest {
             assertLogContains(logs, "Failed to execute: 403 [path=me/transitiveMemberOf/microsoft.graph.group?");
             // Multiline error response is logged as a single line
             assertLogContains(logs, "requestId=request-denied, body={ \"error\": { \"code\": \"Authorization_RequestDenied\", \"message\": \"Insufficient privileges to complete the operation.\" } }]");
+        } finally {
+            driver.quit();
+        }
+    }
+
+    @Test
+    void testGroupsPaging() {
+        RemoteWebDriver driver = new RemoteWebDriver(webDriverContainer.getSeleniumAddress(), createChromeOptions());
+        try {
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+            Set<String> managedGroupsBefore = getManagedGroupPaths();
+            assertEquals(Set.of("/finance", "/parent/child"), managedGroupsBefore);
+
+            // Finance Group is only on the second page
+            stubTransitiveMemberOfPages(
+                WireMock.okJson(getTransitiveMemberOfPageJson("http://wiremock:8080" + TRANSITIVE_MEMBER_OF_PATH + "?$skiptoken=page-2", "All Staff", "Oulu Team"))
+                    .withHeader("request-id", "request-page-1"),
+                WireMock.okJson(getTransitiveMemberOfJson("Finance Group")).withHeader("request-id", "request-page-2")
+            );
+
+            int logOffset = keycloakContainer.getLogs().length();
+            logout(driver);
+            WireMock.resetAllRequests();
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            // Groups of all pages are used, so the user stays in Finance
+            assertEquals(managedGroupsBefore, getManagedGroupPaths());
+            String logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "requestId=request-page-1,request-page-2, received=3, filteredLocally=0, withoutDisplayName=0, groups=3, odataCount=null, pages=2");
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+                .withQueryParam("$top", WireMock.equalTo("999"))
+                .withQueryParam("$skiptoken", WireMock.absent()));
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+                .withQueryParam("$skiptoken", WireMock.equalTo("page-2")));
+
+            // Second page fails: memberships must not be changed based on the first page only
+            stubTransitiveMemberOfPages(
+                WireMock.okJson(getTransitiveMemberOfPageJson("http://wiremock:8080" + TRANSITIVE_MEMBER_OF_PATH + "?$skiptoken=page-2", "Oulu Team")),
+                WireMock.serverError()
+            );
+
+            logOffset = keycloakContainer.getLogs().length();
+            logout(driver);
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            assertEquals(managedGroupsBefore, getManagedGroupPaths());
+            logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "Failed to execute: 500 [path=me/transitiveMemberOf/microsoft.graph.group?");
+            assertLogContains(logs, "(page 2)");
+
+            // Next page link to another host is not followed, so the access token is not sent there
+            stubTransitiveMemberOfPages(
+                WireMock.okJson(getTransitiveMemberOfPageJson("https://graph.example.com/v1.0/me/transitiveMemberOf/microsoft.graph.group?$skiptoken=page-2", "Oulu Team")),
+                WireMock.okJson(getTransitiveMemberOfJson("Finance Group"))
+            );
+
+            logOffset = keycloakContainer.getLogs().length();
+            logout(driver);
+            WireMock.resetAllRequests();
+            loginWithAzure(driver);
+            waitAndAssertInputValue(driver, By.id("azure-ad-user-id"), "c13e5f62-fc61-4a9d-8a0c-5c9f87f0e110");
+
+            assertEquals(managedGroupsBefore, getManagedGroupPaths());
+            logs = keycloakContainer.getLogs().substring(logOffset);
+            assertLogContains(logs, "does not point to Graph API URL http://wiremock:8080");
+            WireMock.verify(1, WireMock.getRequestedFor(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH)));
         } finally {
             driver.quit();
         }
@@ -552,6 +622,36 @@ public class GraphApiTests extends AbstractSeleniumTest {
      */
     private void assertLogContains(String logs, String expected) {
         assertTrue(logs.contains(expected), String.format("Expected Keycloak logs to contain: %s%nLogs:%n%s", expected, logs));
+    }
+
+    /**
+     * Stubs the first and the second page of the logged user's group memberships
+     *
+     * @param firstPage response of the first page
+     * @param secondPage response of the second page
+     */
+    private void stubTransitiveMemberOfPages(ResponseDefinitionBuilder firstPage, ResponseDefinitionBuilder secondPage) {
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+            .withQueryParam("$skiptoken", WireMock.equalTo("page-2"))
+            .atPriority(1)
+            .willReturn(secondPage));
+
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo(TRANSITIVE_MEMBER_OF_PATH))
+            .withQueryParam("$skiptoken", WireMock.absent())
+            .atPriority(2)
+            .willReturn(firstPage));
+    }
+
+    /**
+     * Returns Graph API transitive member of response JSON with a link to the next page
+     *
+     * @param nextLink link to the next page
+     * @param displayNames group display names
+     * @return response JSON
+     */
+    private String getTransitiveMemberOfPageJson(String nextLink, String... displayNames) {
+        String page = getTransitiveMemberOfJson(displayNames);
+        return String.format("{\"@odata.nextLink\":\"%s\",%s", nextLink, page.substring(1));
     }
 
     /**
